@@ -1,4 +1,4 @@
-# RECOMP — Deployment Guide
+# RECOMP — Deployment Guide 
 
 ## Overview
 5 steps, ~20 minutes total. Result: a live URL with AI parsing and Google Sign In working.
