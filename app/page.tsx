@@ -365,7 +365,7 @@ export default function TrackerPage() {
 
             <div style={{ margin: '8px 14px 0', background: '#0c0c0c', border: '1px solid #181818', borderRadius: 10, padding: '10px 13px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', textAlign: 'center' }}>
-                {[['CAL', totals.calories, '#e8ff47'], ['PRO', `${totals.protein}g`, '#47c8ff'], ['CARB', `${totals.carbs}g`, '#ff9f47'], ['FAT', `${totals.fat}g`, '#c447ff']].map(([l, v, c]) => (
+                {[['CAL', String(totals.calories), '#e8ff47'], ['PRO', `${totals.protein}g`, '#47c8ff'], ['CARB', `${totals.carbs}g`, '#ff9f47'], ['FAT', `${totals.fat}g`, '#c447ff']].map(([l, v, c]) => (
                   <div key={l}><div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 17, color: c, lineHeight: 1 }}>{v}</div><div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', letterSpacing: 0.5, marginTop: 2 }}>{l}</div></div>
                 ))}
               </div>
