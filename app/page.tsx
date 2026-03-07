@@ -864,6 +864,11 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
     await loadData()
   }
 
+  const deleteWeightLog = async (id: string) => {
+    await supabase.from('weight_logs').delete().eq('id', id)
+    await loadData()
+  }
+
   const inputStyle: React.CSSProperties = {
     background: '#0a0a0a', border: '1px solid #222', borderRadius: 7,
     padding: '10px 12px', color: '#ccc', fontFamily: "'DM Mono',monospace",
@@ -1011,9 +1016,12 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
                       <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#666' }}>{new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
                       {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', marginTop: 2 }}>{w.notes}</div>}
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, color: '#888', lineHeight: 1 }}>{w.weight_lb} <span style={{ fontSize: 10, color: '#333' }}>lb</span></div>
-                      {delta !== null && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333', marginTop: 1 }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, color: '#888', lineHeight: 1 }}>{w.weight_lb} <span style={{ fontSize: 10, color: '#333' }}>lb</span></div>
+                        {delta !== null && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333', marginTop: 1 }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)}</div>}
+                      </div>
+                      <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 14, padding: '2px 4px', lineHeight: 1 }}>×</button>
                     </div>
                   </div>
                 )
