@@ -46,23 +46,23 @@ function activityIcon(type: string) {
   return ({cycling:'🚴',yoga:'🧘',run:'🏃',walk:'🚶',swim:'🏊',hiit:'⚡',pilates:'🤸',hotworx:'🔥',class:'🎯',rowing:'🚣',cardio_machine:'⚙️',mobility:'🙆',strength:'💪'} as any)[type]||'💪'
 }
 function activityAccentColor(type: string) {
-  return ({cycling:'#47c8ff',yoga:'#c447ff',run:'#ff9f47',walk:'#4aff7a',swim:'#47c8ff',hiit:'#ff6b6b',pilates:'#c447ff',hotworx:'#ff6b6b',class:'#e8ff47',rowing:'#47c8ff',cardio_machine:'#ff9f47',mobility:'#4aff7a',strength:'#888'} as any)[type]||'#888'
+  return ({cycling:'#81b29a',yoga:'#b07dd1',run:'#f4a261',walk:'#6bcb96',swim:'#81b29a',hiit:'#e07a5f',pilates:'#b07dd1',hotworx:'#e07a5f',class:'#f4a261',rowing:'#81b29a',cardio_machine:'#f4a261',mobility:'#6bcb96',strength:'#888'} as any)[type]||'#888'
 }
 function isCardioType(type: string) {
   return ['cycling','yoga','run','walk','swim','hiit','pilates','hotworx','class','rowing','cardio_machine','mobility'].includes(type)
 }
 function muscleColor(n: string) {
   n=(n||'').toLowerCase()
-  if(n.includes('press')||n.includes('shoulder')||n.includes('lateral')||n.includes('raise'))return'#ff9f47'
-  if(n.includes('pull')||n.includes('row')||n.includes('back')||n.includes('lat')||n.includes('deadlift')||n.includes('face pull'))return'#47c8ff'
-  if(n.includes('chest')||n.includes('fly')||n.includes('pec')||n.includes('incline')||n.includes('bench'))return'#c447ff'
-  if(n.includes('squat')||n.includes('leg')||n.includes('lunge')||n.includes('calf'))return'#ff6b6b'
-  if(n.includes('curl')||n.includes('bicep'))return'#e8ff47'
+  if(n.includes('press')||n.includes('shoulder')||n.includes('lateral')||n.includes('raise'))return'#f4a261'
+  if(n.includes('pull')||n.includes('row')||n.includes('back')||n.includes('lat')||n.includes('deadlift')||n.includes('face pull'))return'#81b29a'
+  if(n.includes('chest')||n.includes('fly')||n.includes('pec')||n.includes('incline')||n.includes('bench'))return'#b07dd1'
+  if(n.includes('squat')||n.includes('leg')||n.includes('lunge')||n.includes('calf'))return'#e07a5f'
+  if(n.includes('curl')||n.includes('bicep'))return'#f4a261'
   if(n.includes('tricep')||n.includes('skull')||n.includes('overhead')||n.includes('extension')||n.includes('rope')||n.includes('dip'))return'#aaffaa'
   return'#888'
 }
 function ratingColor(score?: number) {
-  return !score?'#555':score>=8?'#4aff7a':score>=6?'#e8ff47':score>=4?'#ff9f47':'#ff6b6b'
+  return !score?'#555':score>=8?'#6bcb96':score>=6?'#f4a261':score>=4?'#f4a261':'#e07a5f'
 }
 
 // ── Macro Bar ─────────────────────────────────────────────────────────────
@@ -71,11 +71,11 @@ function MacroBar({ label, value, goal, color }: { label:string; value:number; g
   return (
     <div style={{marginBottom:9}}>
       <div style={{display:'flex',justifyContent:'space-between',fontFamily:"'DM Mono',monospace",fontSize:10,marginBottom:3}}>
-        <span style={{color:over?'#ff6b6b':'#555',letterSpacing:1}}>{label.toUpperCase()}</span>
-        <span style={{color:over?'#ff6b6b':color}}>{value}<span style={{color:'#999'}}>/{goal}{label==='Cal'?'':'g'}</span></span>
+        <span style={{color:over?'#e07a5f':'#555',letterSpacing:1}}>{label.toUpperCase()}</span>
+        <span style={{color:over?'#e07a5f':color}}>{value}<span style={{color:'#999'}}>/{goal}{label==='Cal'?'':'g'}</span></span>
       </div>
       <div style={{background:'#1e1e22',borderRadius:3,height:5}}>
-        <div style={{width:`${pct}%`,height:'100%',background:over?'#ff6b6b':color,borderRadius:3,transition:'width 0.5s'}}/>
+        <div style={{width:`${pct}%`,height:'100%',background:over?'#e07a5f':color,borderRadius:3,transition:'width 0.5s'}}/>
       </div>
     </div>
   )
@@ -88,7 +88,7 @@ function ManualModal({ meal, onAdd, onClose }: { meal:string; onAdd:(f:any)=>voi
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.93)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,backdropFilter:'blur(8px)'}}>
       <div style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:16,padding:24,width:320}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#e8ff47',letterSpacing:2,marginBottom:14}}>ADD TO {meal.toUpperCase()}</div>
+        <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:18,color:'#f4a261',letterSpacing:2,marginBottom:14}}>ADD TO {meal.toUpperCase()}</div>
         <div style={{display:'flex',flexDirection:'column',gap:7}}>
           <input value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))} placeholder="Food name *" style={s}/>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
@@ -98,9 +98,9 @@ function ManualModal({ meal, onAdd, onClose }: { meal:string; onAdd:(f:any)=>voi
           </div>
         </div>
         <div style={{display:'flex',gap:8,marginTop:14}}>
-          <button onClick={onClose} style={{flex:1,padding:9,background:'transparent',border:'1px solid #2e2e35',borderRadius:7,color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:11,cursor:'pointer'}}>CANCEL</button>
+          <button onClick={onClose} style={{flex:1,padding:9,background:'transparent',border:'1px solid #2e2e35',borderRadius:7,color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:11,cursor:'pointer'}}>Cancel</button>
           <button onClick={()=>{if(f.name&&f.calories){onAdd({name:f.name,calories:+f.calories,protein:+f.protein||0,carbs:+f.carbs||0,fat:+f.fat||0});onClose();}}}
-            style={{flex:2,padding:9,background:'#e8ff47',border:'none',borderRadius:7,color:'#111114',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:1.5,cursor:'pointer'}}>ADD</button>
+            style={{flex:2,padding:9,background:'#f4a261',border:'none',borderRadius:7,color:'#111114',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:14,letterSpacing:1.5,cursor:'pointer'}}>ADD</button>
         </div>
       </div>
     </div>
@@ -143,10 +143,10 @@ function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; o
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.95)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300,backdropFilter:'blur(10px)'}}>
       <div style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:16,padding:24,width:340,maxWidth:'94vw',maxHeight:'85vh',overflowY:'auto'}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#e8ff47',letterSpacing:2,marginBottom:4}}>{meal.name.toUpperCase()} RATING</div>
+        <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:18,color:'#f4a261',letterSpacing:2,marginBottom:4}}>{meal.name.toUpperCase()} RATING</div>
         {loading ? (
           <div style={{textAlign:'center',padding:'40px 0'}}>
-            <div style={{width:24,height:24,border:'2px solid #2e2e35',borderTop:'2px solid #e8ff47',borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 12px'}}/>
+            <div style={{width:24,height:24,border:'2px solid #2e2e35',borderTop:'2px solid #f4a261',borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 12px'}}/>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#777'}}>Rating each item...</div>
           </div>
         ) : result ? (
@@ -157,7 +157,7 @@ function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; o
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',letterSpacing:1.5,marginBottom:8}}>ITEM BREAKDOWN</div>
                 {result.items.map((item, i) => (
                   <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'8px 0',borderBottom:'1px solid #0e0e0e'}}>
-                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(item.score),lineHeight:1,minWidth:28,textAlign:'center'}}>{item.score}</div>
+                    <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:20,color:ratingColor(item.score),lineHeight:1,minWidth:28,textAlign:'center'}}>{item.score}</div>
                     <div style={{flex:1}}>
                       <div style={{fontSize:11,color:'#bbb',fontWeight:600,marginBottom:2}}>{item.name}</div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#aaa',lineHeight:1.5}}>{item.note}</div>
@@ -167,15 +167,15 @@ function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; o
               </div>
             )}
             {/* Meal summary score */}
-            <div style={{background:'#0a0f0a',border:'1px solid #1a3a1a',borderRadius:10,padding:'14px',textAlign:'center',marginBottom:14}}>
+            <div style={{background:'#0a0f0a',border:'1px solid #1a3a1a',borderRadius:12,padding:'14px',textAlign:'center',marginBottom:14}}>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',letterSpacing:1.5,marginBottom:4}}>MEAL SCORE</div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:56,color:ratingColor(result.mealScore),lineHeight:1}}>{result.mealScore}</div>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:56,color:ratingColor(result.mealScore),lineHeight:1}}>{result.mealScore}</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',letterSpacing:1}}>/10</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#bbb',lineHeight:1.6,marginTop:10,textAlign:'left'}}>{result.mealNotes}</div>
             </div>
           </>
         ) : null}
-        <button onClick={handleDone} style={{width:'100%',padding:12,background:'#e8ff47',border:'none',borderRadius:10,color:'#111114',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:2,cursor:'pointer'}}>DONE</button>
+        <button onClick={handleDone} style={{width:'100%',padding:12,background:'#f4a261',border:'none',borderRadius:12,color:'#111114',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:14,letterSpacing:2,cursor:'pointer'}}>DONE</button>
       </div>
     </div>
   )
@@ -209,11 +209,11 @@ function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>v
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <div style={{fontSize:22,lineHeight:1}}>{icon}</div>
             <div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:14,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
               <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap'}}>
                 {dur&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:accentColor,background:accentColor+'18',padding:'2px 7px',borderRadius:4}}>{dur} min</span>}
                 {inten&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#999',background:'#1e1e22',padding:'2px 7px',borderRadius:4}}>{inten}</span>}
-                {cal&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#ff6b6b',background:'#ff6b6b15',padding:'2px 7px',borderRadius:4}}>{cal} cal</span>}
+                {cal&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#e07a5f',background:'#e07a5f15',padding:'2px 7px',borderRadius:4}}>{cal} cal</span>}
                 {loc&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#777',background:'#1c1c22',padding:'2px 7px',borderRadius:4}}>{loc}</span>}
               </div>
               {note&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',marginTop:5,lineHeight:1.5}}>{note}</div>}
@@ -259,18 +259,18 @@ function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>v
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div style={{width:3,height:14,background:accentColor,borderRadius:2}}/>
           <div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
+            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2e2e2e',marginTop:1}}>{editSets.length} sets · max {maxW}{maxW!=='BW'?'lb':''} · {vol.toLocaleString()} vol</div>
           </div>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           {w.grade && (
             <div style={{textAlign:'center'}}>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(w.grade),lineHeight:1}}>{w.grade}</div>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:20,color:ratingColor(w.grade),lineHeight:1}}>{w.grade}</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#999',letterSpacing:0.5}}>/10</div>
             </div>
           )}
-          {dirty && <button onClick={saveEdits} style={{background:'#e8ff4718',border:'1px solid #e8ff4744',borderRadius:4,color:'#e8ff47',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'2px 7px',cursor:'pointer'}}>SAVE</button>}
+          {dirty && <button onClick={saveEdits} style={{background:'#f4a26118',border:'1px solid #f4a26144',borderRadius:4,color:'#f4a261',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'2px 7px',cursor:'pointer'}}>Save</button>}
           {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px'}}>x</button>}
         </div>
       </div>
@@ -283,7 +283,7 @@ function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>v
           const sv=w2*(+set.reps||0)
           return (
             <div key={i} style={{display:'grid',gridTemplateColumns:'18px 1fr 1fr 1fr 20px',gap:3,padding:'3px 0',borderTop:'1px solid #0e0e0e',alignItems:'center'}}>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#999'}}>{i+1}</div>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,color:'#999'}}>{i+1}</div>
               <div style={{background:'#1c1c22',borderRadius:4,border:'1px solid #2e2e35',padding:'2px 4px'}}>
                 <input value={set.weight} onChange={e=>updateSet(i,'weight',e.target.value)} style={iStyle} placeholder="wt"/>
               </div>
@@ -350,23 +350,23 @@ function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:Fo
   return (
     <div style={{paddingBottom:40}}>
       {ratingMeal && <MealRatingModal meal={{name:ratingMeal.name,items:ratingMeal.items,calories:ratingMeal.calories,protein:ratingMeal.protein,carbs:ratingMeal.carbs,fat:ratingMeal.fat,rating:ratingMeal.rating,ai_analysis:ratingMeal.ai_analysis,itemScores:ratingMeal.itemScores}} onClose={()=>setRatingMeal(null)} onRated={saveRating} forceRefresh={forceRefresh}/>}
-      <div style={{margin:'0 14px 12px',background:'#131313',border:'1px solid #181818',borderRadius:14,padding:'13px 14px'}}>
+      <div style={{margin:'0 14px 12px',background:'#131313',border:'1px solid #181818',borderRadius:16,padding:'13px 14px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#aaa',letterSpacing:1.5}}>DAILY MACROS</div>
           {dailyScore ? (
             <div style={{display:'flex',alignItems:'center',gap:6}}>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',letterSpacing:1}}>NUTRITION SCORE</div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:ratingColor(dailyScore),lineHeight:1}}>{dailyScore}</div>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:22,color:ratingColor(dailyScore),lineHeight:1}}>{dailyScore}</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999'}}>/10</div>
             </div>
           ) : (
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#bbb',letterSpacing:1}}>RATE MEALS TO SCORE</div>
           )}
         </div>
-        <MacroBar label="Cal" value={totals.calories} goal={macroGoal.calories} color="#e8ff47"/>
-        <MacroBar label="Protein" value={Math.round(totals.protein)} goal={macroGoal.protein} color="#47c8ff"/>
-        <MacroBar label="Carbs" value={Math.round(totals.carbs)} goal={macroGoal.carbs} color="#ff9f47"/>
-        <MacroBar label="Fat" value={Math.round(totals.fat)} goal={macroGoal.fat} color="#c447ff"/>
+        <MacroBar label="Cal" value={totals.calories} goal={macroGoal.calories} color="#f4a261"/>
+        <MacroBar label="Protein" value={Math.round(totals.protein)} goal={macroGoal.protein} color="#81b29a"/>
+        <MacroBar label="Carbs" value={Math.round(totals.carbs)} goal={macroGoal.carbs} color="#f4a261"/>
+        <MacroBar label="Fat" value={Math.round(totals.fat)} goal={macroGoal.fat} color="#b07dd1"/>
       </div>
 
       {MEAL_SLOTS.map(meal => {
@@ -377,7 +377,7 @@ function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:Fo
           <div key={meal} style={{margin:'0 14px 9px',background:'#131313',border:'1px solid #181818',borderRadius:11,overflow:'hidden'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 13px 8px'}}>
               <div>
-                <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:2,color:'#bbb'}}>{meal.toUpperCase()}</span>
+                <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:14,letterSpacing:2,color:'#bbb'}}>{meal.toUpperCase()}</span>
                 {mFoods.length>0&&<span style={{marginLeft:7,fontFamily:"'DM Mono',monospace",fontSize:9,color:'#777'}}>{mc} kcal · {Math.round(mp)}g pro</span>}
               </div>
               <div style={{display:'flex',gap:5}}>
@@ -389,8 +389,8 @@ function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:Fo
                   const mcarbs = mFoods.reduce((s,f)=>s+(+f.carbs||0),0)
                   const mfat = mFoods.reduce((s,f)=>s+(+f.fat||0),0)
                   return <button onClick={()=>openRating({name:meal,items:mFoods,calories:mc2,protein:mp2,carbs:mcarbs,fat:mfat,rating:mealRating,ai_analysis:mFoods[0]?.ai_analysis,itemScores:mFoods.map(f=>({name:f.name,score:f.rating,note:f.ai_analysis})).filter(s=>s.score),slot:meal}, !!mealRating)}
-                    style={{background:'#0a1a0a',border:`1px solid ${mealRating?'#1e4a1e':'#1e3a1e'}`,borderRadius:5,color:mealRating?sc:'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
-                    {mealRating&&<span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,lineHeight:1}}>{mealRating}</span>}
+                    style={{background:'#0a1a0a',border:`1px solid ${mealRating?'#1e4a1e':'#1e3a1e'}`,borderRadius:5,color:mealRating?sc:'#6bcb96',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                    {mealRating&&<span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,lineHeight:1}}>{mealRating}</span>}
                     {mealRating?'re-rate':'rate'}
                   </button>
                 })()}
@@ -406,16 +406,16 @@ function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:Fo
                       <div style={{display:'flex',alignItems:'center',gap:6}}>
                         <div style={{fontSize:12,color:'#aaa',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.name}</div>
                         {f.rating && (
-                          <span style={{background:ratingColor(f.rating)+'22',border:`1px solid ${ratingColor(f.rating)}44`,borderRadius:4,color:ratingColor(f.rating),fontFamily:"'Bebas Neue',sans-serif",fontSize:10,padding:'1px 5px',flexShrink:0,lineHeight:1.4}}>
+                          <span style={{background:ratingColor(f.rating)+'22',border:`1px solid ${ratingColor(f.rating)}44`,borderRadius:4,color:ratingColor(f.rating),fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:10,padding:'1px 5px',flexShrink:0,lineHeight:1.4}}>
                             {f.rating}
                           </span>
                         )}
                       </div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#777',marginTop:2}}>
-                        <span style={{color:'#e8ff47'}}>{f.calories}cal</span>
-                        {f.protein>0&&<span> · <span style={{color:'#47c8ff'}}>{f.protein}p</span></span>}
-                        {f.carbs>0&&<span> · <span style={{color:'#ff9f47'}}>{f.carbs}c</span></span>}
-                        {f.fat>0&&<span> · <span style={{color:'#c447ff'}}>{f.fat}f</span></span>}
+                        <span style={{color:'#f4a261'}}>{f.calories}cal</span>
+                        {f.protein>0&&<span> · <span style={{color:'#81b29a'}}>{f.protein}p</span></span>}
+                        {f.carbs>0&&<span> · <span style={{color:'#f4a261'}}>{f.carbs}c</span></span>}
+                        {f.fat>0&&<span> · <span style={{color:'#b07dd1'}}>{f.fat}f</span></span>}
                       </div>
                     </div>
                     <button onClick={()=>removeFood(f.id)} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px',flexShrink:0}}>x</button>
@@ -427,10 +427,10 @@ function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:Fo
         )
       })}
 
-      <div style={{margin:'8px 14px 0',background:'#131313',border:'1px solid #181818',borderRadius:10,padding:'10px 13px'}}>
+      <div style={{margin:'8px 14px 0',background:'#131313',border:'1px solid #181818',borderRadius:12,padding:'10px 13px'}}>
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',textAlign:'center'}}>
-          {[['CAL',String(totals.calories),'#e8ff47'],['PRO',`${Math.round(totals.protein)}g`,'#47c8ff'],['CARB',`${Math.round(totals.carbs)}g`,'#ff9f47'],['FAT',`${Math.round(totals.fat)}g`,'#c447ff']].map(([l,v,c])=>(
-            <div key={l}><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,color:c,lineHeight:1}}>{v}</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#999',letterSpacing:0.5,marginTop:2}}>{l}</div></div>
+          {[['CAL',String(totals.calories),'#f4a261'],['PRO',`${Math.round(totals.protein)}g`,'#81b29a'],['CARB',`${Math.round(totals.carbs)}g`,'#f4a261'],['FAT',`${Math.round(totals.fat)}g`,'#b07dd1']].map(([l,v,c])=>(
+            <div key={l}><div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:17,color:c,lineHeight:1}}>{v}</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#999',letterSpacing:0.5,marginTop:2}}>{l}</div></div>
           ))}
         </div>
       </div>
@@ -540,14 +540,14 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
   return (
     <div style={{padding:'0 14px 40px'}}>
       {/* Session header */}
-      <div style={{background:'#131313',border:'1px solid #181818',borderRadius:14,padding:'13px 14px',marginBottom:10}}>
-        <input value={workoutName} onChange={e=>setWorkoutName(e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({workout_name:workoutName}).eq('id',session.id); onRefresh() }}} placeholder="Workout name..." style={{background:'transparent',border:'none',color:'#bbb',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:2,width:'100%',outline:'none'}}/>
+      <div style={{background:'#131313',border:'1px solid #181818',borderRadius:16,padding:'13px 14px',marginBottom:10}}>
+        <input value={workoutName} onChange={e=>setWorkoutName(e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({workout_name:workoutName}).eq('id',session.id); onRefresh() }}} placeholder="Workout name..." style={{background:'transparent',border:'none',color:'#bbb',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:18,letterSpacing:2,width:'100%',outline:'none'}}/>
         <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#777'}}>CALS BURNED:</div>
-          <input type="number" value={calsBurned||''} onChange={e=>setCalsBurned(+e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({cals_burned:calsBurned}).eq('id',session.id); onRefresh() }}} placeholder="0" style={{background:'#1c1c22',border:'1px solid #2e2e35',borderRadius:4,color:'#ff6b6b',fontFamily:"'DM Mono',monospace",fontSize:11,padding:'3px 7px',width:70,outline:'none'}}/>
+          <input type="number" value={calsBurned||''} onChange={e=>setCalsBurned(+e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({cals_burned:calsBurned}).eq('id',session.id); onRefresh() }}} placeholder="0" style={{background:'#1c1c22',border:'1px solid #2e2e35',borderRadius:4,color:'#e07a5f',fontFamily:"'DM Mono',monospace",fontSize:11,padding:'3px 7px',width:70,outline:'none'}}/>
           {session?.rating && (
             <div style={{marginLeft:'auto',textAlign:'center'}}>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:ratingColor(session.rating),lineHeight:1}}>{session.rating}</div>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:28,color:ratingColor(session.rating),lineHeight:1}}>{session.rating}</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#999',letterSpacing:1}}>/10</div>
             </div>
           )}
@@ -564,7 +564,7 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
       {session?.analysis && (
         <div style={{background:'#0a0f0a',border:'1px solid #1a2a1a',borderRadius:11,padding:'12px 14px',marginBottom:10}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#4aff7a',letterSpacing:2}}>AI COACHING</div>
+            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,color:'#6bcb96',letterSpacing:2}}>AI COACHING</div>
             <button onClick={clearAnalysis} style={{background:'none',border:'none',color:'#999',cursor:'pointer',fontSize:12,padding:'0 2px'}}>x</button>
           </div>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#999',lineHeight:1.7}}>{session.analysis}</div>
@@ -586,7 +586,7 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
             <>
               {newSets.map((set,i) => (
                 <div key={i} style={{display:'grid',gridTemplateColumns:'30px 1fr 1fr 30px',gap:5,marginBottom:5,alignItems:'center'}}>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#777',textAlign:'center'}}>{i+1}</div>
+                  <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,color:'#777',textAlign:'center'}}>{i+1}</div>
                   <input value={set.weight} onChange={e=>setNewSets(prev=>prev.map((s2,j)=>j===i?{...s2,weight:e.target.value}:s2))} placeholder="Weight" style={s}/>
                   <input value={set.reps} onChange={e=>setNewSets(prev=>prev.map((s2,j)=>j===i?{...s2,reps:e.target.value}:s2))} placeholder="Reps" type="number" style={s}/>
                   <button onClick={()=>setNewSets(prev=>prev.filter((_,j)=>j!==i))} style={{background:'none',border:'none',color:'#777',cursor:'pointer',fontSize:14}}>x</button>
@@ -596,8 +596,8 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
             </>
           )}
           <div style={{display:'flex',gap:7}}>
-            <button onClick={()=>setAddingExercise(false)} style={{flex:1,padding:8,background:'transparent',border:'1px solid #2e2e35',borderRadius:7,color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>CANCEL</button>
-            <button onClick={addExercise} disabled={!newEx.name} style={{flex:2,padding:8,background:newEx.name?'#e8ff47':'#1e1e22',border:'none',borderRadius:7,color:'#111114',fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:1.5,cursor:newEx.name?'pointer':'default'}}>ADD EXERCISE</button>
+            <button onClick={()=>setAddingExercise(false)} style={{flex:1,padding:8,background:'transparent',border:'1px solid #2e2e35',borderRadius:7,color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>Cancel</button>
+            <button onClick={addExercise} disabled={!newEx.name} style={{flex:2,padding:8,background:newEx.name?'#f4a261':'#1e1e22',border:'none',borderRadius:7,color:'#111114',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,letterSpacing:1.5,cursor:newEx.name?'pointer':'default'}}>ADD EXERCISE</button>
           </div>
         </div>
       )}
@@ -605,8 +605,8 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
       <div style={{display:'flex',gap:7,marginTop:4}}>
         <button onClick={()=>setAddingExercise(true)} style={{flex:2,padding:10,background:'#131313',border:'1px solid #2e2e35',borderRadius:9,color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>+ ADD EXERCISE</button>
         {session && session.exercises.length > 0 && (
-          <button onClick={runAnalysis} disabled={analyzing} style={{flex:1,padding:10,background:analyzing?'#18181c':'#0a1a0a',border:`1px solid ${analyzing?'#2e2e35':'#1a3a1a'}`,borderRadius:9,color:analyzing?'#333':'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:analyzing?'default':'pointer'}}>
-            {analyzing?'ANALYZING...':session?.analysis?'RE-GRADE':'GRADE'}
+          <button onClick={runAnalysis} disabled={analyzing} style={{flex:1,padding:10,background:analyzing?'#18181c':'#0a1a0a',border:`1px solid ${analyzing?'#2e2e35':'#1a3a1a'}`,borderRadius:9,color:analyzing?'#333':'#6bcb96',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:analyzing?'default':'pointer'}}>
+            {analyzing?'Reviewing...':session?.analysis?'RE-Review':'Review'}
           </button>
         )}
       </div>
@@ -628,9 +628,9 @@ function TrendsTab({ foods, sessions }: { foods:FoodItem[]; sessions:WorkoutSess
   return (
     <div style={{padding:'0 14px 40px'}}>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
-        {[['AVG CALORIES',String(avgCal),'#e8ff47'],['AVG PROTEIN',`${avgPro}g`,'#47c8ff'],['SESSIONS',String(sessions.length),'#4aff7a'],['AVG GRADE',String(avgRating),'#ff9f47']].map(([l,v,c])=>(
-          <div key={l} style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:10,padding:'12px 14px'}}>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:c,lineHeight:1}}>{v}</div>
+        {[['AVG CALORIES',String(avgCal),'#f4a261'],['AVG PROTEIN',`${avgPro}g`,'#81b29a'],['SESSIONS',String(sessions.length),'#6bcb96'],['AVG Review',String(avgRating),'#f4a261']].map(([l,v,c])=>(
+          <div key={l} style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:12,padding:'12px 14px'}}>
+            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:28,color:c,lineHeight:1}}>{v}</div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',letterSpacing:1,marginTop:3}}>{l}</div>
           </div>
         ))}
@@ -645,7 +645,7 @@ function TrendsTab({ foods, sessions }: { foods:FoodItem[]; sessions:WorkoutSess
             const over = d.calories > MACRO_GOAL.calories
             return (
               <div key={d.date} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
-                <div style={{width:'100%',height:h,background:d.logged?(over?'#ff6b6b':'#e8ff47'):'#1e1e22',borderRadius:2,transition:'height 0.3s'}}/>
+                <div style={{width:'100%',height:h,background:d.logged?(over?'#e07a5f':'#f4a261'):'#1e1e22',borderRadius:2,transition:'height 0.3s'}}/>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#999'}}>{new Date(d.date+'T12:00').toLocaleDateString('en-US',{weekday:'short'}).slice(0,2)}</div>
               </div>
             )
@@ -661,10 +661,10 @@ function TrendsTab({ foods, sessions }: { foods:FoodItem[]; sessions:WorkoutSess
         ) : sessions.map(s => (
           <div key={s.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid #0e0e0e'}}>
             <div>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:'#bbb',letterSpacing:1}}>{s.workout_name}</div>
+              <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:'#bbb',letterSpacing:1}}>{s.workout_name}</div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',marginTop:1}}>{new Date(s.logged_date+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})} · {s.exercises?.length||0} exercises</div>
             </div>
-            {s.rating && <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(s.rating)}}>{s.rating}</div>}
+            {s.rating && <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:20,color:ratingColor(s.rating)}}>{s.rating}</div>}
           </div>
         ))}
       </div>
@@ -681,7 +681,7 @@ function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; act
   const [targetMeal, setTargetMeal] = useState('Breakfast')
   const fileRef = useRef<HTMLInputElement>(null)
   const recogRef = useRef<any>(null)
-  const accentColor = tab === 'food' ? '#e8ff47' : '#47c8ff'
+  const accentColor = tab === 'food' ? '#f4a261' : '#81b29a'
 
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -758,7 +758,7 @@ function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; act
       {tab === 'food' && (
         <div style={{display:'flex',gap:4,marginBottom:6,overflowX:'auto'}}>
           {MEAL_SLOTS.map(m=>(
-            <button key={m} onClick={()=>setTargetMeal(m)} style={{padding:'3px 10px',background:targetMeal===m?'#e8ff4718':'transparent',border:`1px solid ${targetMeal===m?'#e8ff4744':'#1e1e22'}`,borderRadius:5,color:targetMeal===m?'#e8ff47':'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer',whiteSpace:'nowrap',letterSpacing:0.5}}>
+            <button key={m} onClick={()=>setTargetMeal(m)} style={{padding:'3px 10px',background:targetMeal===m?'#f4a26118':'transparent',border:`1px solid ${targetMeal===m?'#f4a26144':'#1e1e22'}`,borderRadius:5,color:targetMeal===m?'#f4a261':'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer',whiteSpace:'nowrap',letterSpacing:0.5}}>
               {m.toUpperCase()}
             </button>
           ))}
@@ -766,7 +766,7 @@ function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; act
       )}
       {photoData && (
         <div style={{marginBottom:6,display:'flex',alignItems:'center',gap:7}}>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#c447ff'}}>📷 Photo ready</div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#b07dd1'}}>📷 Photo ready</div>
           <button onClick={()=>setPhotoData(null)} style={{background:'none',border:'none',color:'#bbb',cursor:'pointer',fontSize:12}}>x</button>
         </div>
       )}
@@ -775,18 +775,18 @@ function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; act
           value={text} onChange={e=>setText(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&parse()}
           placeholder={tab==='food'?'Log food with AI...':'Log workout with AI...'}
-          style={{flex:1,background:'#131313',border:'1px solid #181818',borderRadius:10,padding:'10px 12px',color:'#ccc',fontFamily:"'DM Mono',monospace",fontSize:12,outline:'none'}}
+          style={{flex:1,background:'#131313',border:'1px solid #181818',borderRadius:12,padding:'10px 12px',color:'#ccc',fontFamily:"'DM Mono',monospace",fontSize:12,outline:'none'}}
         />
-        <button onClick={toggleVoice} style={{width:40,height:40,background:listening?'#0a1a0a':'#18181c',border:`1px solid ${listening?'#4aff7a':'#2e2e35'}`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+        <button onClick={toggleVoice} style={{width:40,height:40,background:listening?'#0a1a0a':'#18181c',border:`1px solid ${listening?'#6bcb96':'#2e2e35'}`,borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
           <span style={{fontSize:16}}>{listening?'⏹':'🎙'}</span>
         </button>
-        <button onClick={()=>fileRef.current?.click()} style={{width:40,height:40,background:photoData?'#1a0a1a':'#18181c',border:`1px solid ${photoData?'#c447ff':'#2e2e35'}`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+        <button onClick={()=>fileRef.current?.click()} style={{width:40,height:40,background:photoData?'#1a0a1a':'#18181c',border:`1px solid ${photoData?'#b07dd1':'#2e2e35'}`,borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
           <span style={{fontSize:16}}>📷</span>
         </button>
-        <button onClick={parse} disabled={(!text.trim()&&!photoData)||parsing} style={{width:40,height:40,background:(!text.trim()&&!photoData)||parsing?'#1c1c22':accentColor,border:'none',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',cursor:(!text.trim()&&!photoData)||parsing?'default':'pointer',flexShrink:0}}>
+        <button onClick={parse} disabled={(!text.trim()&&!photoData)||parsing} style={{width:40,height:40,background:(!text.trim()&&!photoData)||parsing?'#1c1c22':accentColor,border:'none',borderRadius:12,display:'flex',alignItems:'center',justifyContent:'center',cursor:(!text.trim()&&!photoData)||parsing?'default':'pointer',flexShrink:0}}>
           {parsing
             ? <div style={{width:14,height:14,border:'2px solid #333',borderTop:'2px solid #111114',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
-            : <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#111114',letterSpacing:1}}>LOG</span>}
+            : <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,color:'#111114',letterSpacing:1}}>LOG</span>}
         </button>
       </div>
       <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{display:'none'}}/>
@@ -889,10 +889,10 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
     fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 0.5
   })
 
-  const goalLabels: Record<string,string> = { lose_fat: 'LOSE FAT', gain_muscle: 'BUILD MUSCLE', recomp: 'RECOMP' }
-  const paceLabels: Record<string,string> = { conservative: 'STEADY', standard: 'BALANCED', aggressive: 'AGGRESSIVE' }
-  const goalColors: Record<string,string> = { lose_fat: '#ff9f47', gain_muscle: '#47c8ff', recomp: '#e8ff47' }
-  const paceColors: Record<string,string> = { conservative: '#4aff7a', standard: '#e8ff47', aggressive: '#ff6b6b' }
+  const goalLabels: Record<string,string> = { lose_fat: 'Lose fat', gain_muscle: 'Build muscle', recomp: 'Recomp' }
+  const paceLabels: Record<string,string> = { conservative: 'Steady', standard: 'Balanced', aggressive: 'Aggressive' }
+  const goalColors: Record<string,string> = { lose_fat: '#f4a261', gain_muscle: '#81b29a', recomp: '#f4a261' }
+  const paceColors: Record<string,string> = { conservative: '#6bcb96', standard: '#f4a261', aggressive: '#e07a5f' }
 
   const displayMacros = recalcPreview || { calories: profile?.macro_calories, protein: profile?.macro_protein, carbs: profile?.macro_carbs, fat: profile?.macro_fat }
 
@@ -953,7 +953,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
-      <div style={{ width: 18, height: 18, border: '2px solid #2e2e35', borderTop: '2px solid #e8ff47', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
+      <div style={{ width: 18, height: 18, border: '2px solid #2e2e35', borderTop: '2px solid #f4a261', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
     </div>
   )
 
@@ -962,24 +962,24 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
 
       {/* Section toggle */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {([['overview','OVERVIEW'],['edit','EDIT GOALS']] as const).map(([k,l]) => (
-          <button key={k} onClick={() => setSection(k)} style={{ flex:1, padding: '8px 4px', background: section===k ? '#e8ff4710' : 'transparent', border: `1px solid ${section===k ? '#e8ff4744' : '#2a2a30'}`, borderRadius: 7, color: section===k ? '#e8ff47' : '#555', fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 0.5, cursor: 'pointer' }}>{l}</button>
+        {([['overview','Overview'],['edit','Edit goals']] as const).map(([k,l]) => (
+          <button key={k} onClick={() => setSection(k)} style={{ flex:1, padding: '8px 4px', background: section===k ? '#f4a26110' : 'transparent', border: `1px solid ${section===k ? '#f4a26144' : '#2a2a30'}`, borderRadius: 7, color: section===k ? '#f4a261' : '#555', fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 0.5, cursor: 'pointer' }}>{l}</button>
         ))}
       </div>
 
-      {/* ── OVERVIEW ── */}
+      {/* ── Overview ── */}
       {section === 'overview' && (
         <>
           {/* Macro targets */}
-          <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+          <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 16, padding: '16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5 }}>DAILY TARGETS</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5 }}>Daily targets</div>
               {profile?.tdee && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#999' }}>TDEE {profile.tdee} kcal · {Math.abs((profile.macro_calories||0) - profile.tdee)} cal {profile.macro_calories < profile.tdee ? 'deficit' : 'surplus'}</div>}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-              {([['CAL', displayMacros?.calories, '#e8ff47'], ['PRO', displayMacros?.protein ? displayMacros.protein + 'g' : '—', '#47c8ff'], ['CARB', displayMacros?.carbs ? displayMacros.carbs + 'g' : '—', '#ff9f47'], ['FAT', displayMacros?.fat ? displayMacros.fat + 'g' : '—', '#c447ff']] as const).map(([l, v, c]) => (
-                <div key={l} style={{ background: '#0d0d0d', border: `1px solid ${c}22`, borderRadius: 10, padding: '12px 6px', textAlign: 'center' }}>
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: c, lineHeight: 1 }}>{v||'—'}</div>
+              {([['CAL', displayMacros?.calories, '#f4a261'], ['PRO', displayMacros?.protein ? displayMacros.protein + 'g' : '—', '#81b29a'], ['CARB', displayMacros?.carbs ? displayMacros.carbs + 'g' : '—', '#f4a261'], ['FAT', displayMacros?.fat ? displayMacros.fat + 'g' : '—', '#b07dd1']] as const).map(([l, v, c]) => (
+                <div key={l} style={{ background: '#0d0d0d', border: `1px solid ${c}22`, borderRadius: 12, padding: '12px 6px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 22, color: c, lineHeight: 1 }}>{v||'—'}</div>
                   <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#999', letterSpacing: 1, marginTop: 3 }}>{l}</div>
                 </div>
               ))}
@@ -987,7 +987,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
           </div>
 
           {/* Stats — START / CURRENT / GOAL progress strip */}
-          <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+          <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 16, padding: '16px', marginBottom: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5 }}>PROGRESS</div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: goalColors[profile.goal_type] || '#333' }}>{goalLabels[profile.goal_type] || '—'} · {paceLabels[profile.pace] || '—'}</div>
@@ -996,30 +996,30 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             {/* Three-column weight strip */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
               {/* START */}
-              <div style={{ background: '#0d0d0d', border: '1px solid #2e2e35', borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
+              <div style={{ background: '#0d0d0d', border: '1px solid #2e2e35', borderRadius: 12, padding: '12px 8px', textAlign: 'center' as const }}>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#999', letterSpacing: 1, marginBottom: 4 }}>START</div>
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: '#bbb', lineHeight: 1 }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 22, color: '#bbb', lineHeight: 1 }}>
                   {firstWeight ?? (profile.weight_lb ? parseFloat(profile.weight_lb) : null) ?? '—'}
                 </div>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#bbb', marginTop: 2 }}>lb</div>
               </div>
               {/* CURRENT */}
-              <div style={{ background: '#0d0d0d', border: '1px solid #47c8ff33', borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#47c8ff66', letterSpacing: 1, marginBottom: 4 }}>NOW</div>
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: '#47c8ff', lineHeight: 1 }}>
+              <div style={{ background: '#0d0d0d', border: '1px solid #81b29a33', borderRadius: 12, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#81b29a66', letterSpacing: 1, marginBottom: 4 }}>NOW</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 22, color: '#81b29a', lineHeight: 1 }}>
                   {latestWeight ?? (profile.weight_lb ? parseFloat(profile.weight_lb) : null) ?? '—'}
                 </div>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#47c8ff44', marginTop: 2 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#81b29a44', marginTop: 2 }}>
                   {totalChange !== null && totalChange !== 0 ? `${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)} lb` : 'lb'}
                 </div>
               </div>
               {/* GOAL */}
-              <div style={{ background: '#0d0d0d', border: `1px solid ${targetWeight ? '#4aff7a33' : '#1c1c22'}`, borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#4aff7a66' : '#404045', letterSpacing: 1, marginBottom: 4 }}>GOAL</div>
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: targetWeight ? '#4aff7a' : '#333', lineHeight: 1 }}>
+              <div style={{ background: '#0d0d0d', border: `1px solid ${targetWeight ? '#6bcb9633' : '#1c1c22'}`, borderRadius: 12, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#6bcb9666' : '#404045', letterSpacing: 1, marginBottom: 4 }}>GOAL</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 22, color: targetWeight ? '#6bcb96' : '#333', lineHeight: 1 }}>
                   {targetWeight ?? '—'}
                 </div>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#4aff7a44' : '#2e2e35', marginTop: 2 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#6bcb9644' : '#2e2e35', marginTop: 2 }}>
                   {toGoal !== null ? `${Math.abs(toGoal).toFixed(1)} to go` : 'lb'}
                 </div>
               </div>
@@ -1034,11 +1034,11 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
               return (
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ height: 4, background: '#1c1c22', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
-                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#4aff7a' : 'linear-gradient(90deg, #47c8ff, #4aff7a)', width: `${pct.toFixed(0)}%`, transition: 'width 0.4s' }}/>
+                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#6bcb96' : 'linear-gradient(90deg, #81b29a, #6bcb96)', width: `${pct.toFixed(0)}%`, transition: 'width 0.4s' }}/>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222' }}>
                     <span>{firstWeight} lb</span>
-                    <span style={{ color: goalAchieved ? '#4aff7a' : '#555' }}>{goalAchieved ? '✓ GOAL HIT' : pct.toFixed(0) + '% there'}</span>
+                    <span style={{ color: goalAchieved ? '#6bcb96' : '#555' }}>{goalAchieved ? '✓ GOAL HIT' : pct.toFixed(0) + '% there'}</span>
                     <span>{targetWeight} lb</span>
                   </div>
                 </div>
@@ -1060,26 +1060,26 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             </div>
           </div>
 
-          {/* ── GOAL ACHIEVED BADGE ── */}
+          {/* ── Goal reached 🎉 BADGE ── */}
           {goalAchieved && (
-            <div style={{ background: 'linear-gradient(135deg, #0a1a0a, #18181c)', border: '1px solid #4aff7a55', borderRadius: 14, padding: '20px', marginBottom: 10, textAlign: 'center' as const }}>
+            <div style={{ background: 'linear-gradient(135deg, #0a1a0a, #18181c)', border: '1px solid #6bcb9655', borderRadius: 16, padding: '20px', marginBottom: 10, textAlign: 'center' as const }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>🏆</div>
-              <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, color: '#4aff7a', letterSpacing: 3, marginBottom: 4 }}>GOAL ACHIEVED</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 26, color: '#6bcb96', letterSpacing: 3, marginBottom: 4 }}>Goal reached 🎉</div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a4a2a', marginBottom: 12 }}>
                 {profile.full_name ? profile.full_name.split(' ')[0] + ', you' : 'You'} hit {targetWeight} lb — {firstWeight && latestWeight ? Math.abs(firstWeight - latestWeight).toFixed(1) + ' lb ' + (latestWeight < firstWeight ? 'lost' : 'gained') + ' from ' + firstWeight + ' lb' : 'goal reached'}
               </div>
-              <button onClick={() => setSection('edit')} style={{ background: '#4aff7a22', border: '1px solid #4aff7a44', borderRadius: 8, color: '#4aff7a', fontFamily: "'DM Mono',monospace", fontSize: 9, padding: '8px 18px', cursor: 'pointer', letterSpacing: 1 }}>SET NEW GOAL →</button>
+              <button onClick={() => setSection('edit')} style={{ background: '#6bcb9622', border: '1px solid #6bcb9644', borderRadius: 8, color: '#6bcb96', fontFamily: "'DM Mono',monospace", fontSize: 9, padding: '8px 18px', cursor: 'pointer', letterSpacing: 1 }}>Set a new goal →</button>
             </div>
           )}
 
           {/* ── GOAL ALERT ── */}
           {showAlert && (
-            <div style={{ background: goalAlert!.type === 'over' ? '#1a0a0a' : '#1a1a0a', border: `1px solid ${goalAlert!.type === 'over' ? '#ff6b6b44' : '#e8ff4744'}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
+            <div style={{ background: goalAlert!.type === 'over' ? '#1a0a0a' : '#1a1a0a', border: `1px solid ${goalAlert!.type === 'over' ? '#e07a5f44' : '#f4a26144'}`, borderRadius: 16, padding: '14px 16px', marginBottom: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                 <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                   <div style={{ fontSize: 16, lineHeight: 1, marginTop: 1 }}>{goalAlert!.type === 'over' ? '⚠️' : '📉'}</div>
                   <div>
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: goalAlert!.type === 'over' ? '#ff6b6b' : '#e8ff47', letterSpacing: 1, marginBottom: 4 }}>HEADS UP</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: goalAlert!.type === 'over' ? '#e07a5f' : '#f4a261', letterSpacing: 1, marginBottom: 4 }}>Heads up</div>
                     <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: '#999', lineHeight: 1.5 }}>{goalAlert!.msg}</div>
                   </div>
                 </div>
@@ -1089,12 +1089,12 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
           )}
 
           {/* Weight log card — inline entry + full history */}
-          <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+          <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 16, padding: '16px', marginBottom: 10 }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5 }}>WEIGHT LOG</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5 }}>Weight</div>
               {totalChange !== null && (
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: totalChange < 0 ? '#4aff7a' : totalChange > 0 ? '#ff6b6b' : '#555', letterSpacing: 1 }}>
+                <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 16, color: totalChange < 0 ? '#6bcb96' : totalChange > 0 ? '#e07a5f' : '#555', letterSpacing: 1 }}>
                   {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)} lb total
                 </div>
               )}
@@ -1103,9 +1103,9 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             {/* Sparkline */}
             {sortedLogs.length > 1 && (
               <svg width="100%" height={40} viewBox={`0 0 ${sparkW} ${sparkH}`} preserveAspectRatio="none" style={{ display: 'block', marginBottom: 10 }}>
-                {targetWeight && <line x1={0} y1={toY(targetWeight)} x2={sparkW} y2={toY(targetWeight)} stroke="#e8ff4722" strokeWidth={1} strokeDasharray="4,4"/>}
-                <path d={sparkPath} fill="none" stroke="#47c8ff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
-                {spark.map((s:any, i:number) => <circle key={i} cx={toX(i)} cy={toY(s.weight_lb)} r={2} fill="#47c8ff"/>)}
+                {targetWeight && <line x1={0} y1={toY(targetWeight)} x2={sparkW} y2={toY(targetWeight)} stroke="#f4a26122" strokeWidth={1} strokeDasharray="4,4"/>}
+                <path d={sparkPath} fill="none" stroke="#81b29a" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+                {spark.map((s:any, i:number) => <circle key={i} cx={toX(i)} cy={toY(s.weight_lb)} r={2} fill="#81b29a"/>)}
               </svg>
             )}
 
@@ -1116,7 +1116,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
               return (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ height: 3, background: '#1e1e22', borderRadius: 2, overflow: 'hidden', marginBottom: 3 }}>
-                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#4aff7a' : '#47c8ff', width: `${pct.toFixed(0)}%` }}/>
+                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#6bcb96' : '#81b29a', width: `${pct.toFixed(0)}%` }}/>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#bbb' }}>
                     <span>{firstWeight} lb start</span>
@@ -1136,7 +1136,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
                 style={{ ...inputStyle, flex: 1, padding: '9px 12px' }}
               />
               <button onClick={saveCheckIn} disabled={!checkInWeight || checkInSaving}
-                style={{ padding: '9px 16px', background: !checkInWeight || checkInSaving ? '#1e1e22' : todayCheckedIn ? '#2a3a2a' : '#e8ff47', border: 'none', borderRadius: 7, color: !checkInWeight || checkInSaving ? '#333' : todayCheckedIn ? '#4aff7a' : '#111114', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 1, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer', whiteSpace: 'nowrap' as const }}>
+                style={{ padding: '9px 16px', background: !checkInWeight || checkInSaving ? '#1e1e22' : todayCheckedIn ? '#2a3a2a' : '#f4a261', border: 'none', borderRadius: 7, color: !checkInWeight || checkInSaving ? '#333' : todayCheckedIn ? '#6bcb96' : '#111114', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 1, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer', whiteSpace: 'nowrap' as const }}>
                 {checkInSaving ? '...' : todayCheckedIn ? '✓ UPDATE' : 'LOG'}
               </button>
             </div>
@@ -1170,16 +1170,16 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
                       <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: i < visible.length - 1 ? '1px solid #16161a' : 'none', gap: 8 }}>
                         <div style={{ flex: 1, fontFamily: "'DM Mono',monospace", fontSize: 9, color: isToday ? '#888' : '#333' }}>
                           {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                          {isToday && <span style={{ color: '#e8ff4799', marginLeft: 4 }}>·today</span>}
+                          {isToday && <span style={{ color: '#f4a26199', marginLeft: 4 }}>·today</span>}
                           {isStart && !isToday && <span style={{ color: '#bbb', marginLeft: 4 }}>·start</span>}
                         </div>
-                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 15, color: isToday ? '#bbb' : '#555', minWidth: 48, textAlign: 'right' as const }}>
+                        <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 15, color: isToday ? '#bbb' : '#555', minWidth: 48, textAlign: 'right' as const }}>
                           {wt}<span style={{ fontSize: 8, color: '#999' }}> lb</span>
                         </div>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 40, textAlign: 'right' as const, color: delta === null ? '#2a2a30' : delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#444' }}>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 40, textAlign: 'right' as const, color: delta === null ? '#2a2a30' : delta < 0 ? '#6bcb96' : delta > 0 ? '#e07a5f' : '#444' }}>
                           {delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
                         </div>
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 44, textAlign: 'right' as const, color: cumulative === null || isStart ? '#2a2a30' : cumulative < 0 ? '#4aff7a' : cumulative > 0 ? '#ff6b6b' : '#444' }}>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 44, textAlign: 'right' as const, color: cumulative === null || isStart ? '#2a2a30' : cumulative < 0 ? '#6bcb96' : cumulative > 0 ? '#e07a5f' : '#444' }}>
                           {cumulative === null || isStart ? '—' : `${cumulative > 0 ? '+' : ''}${cumulative.toFixed(1)}`}
                         </div>
                         <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#bbb', cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1, width: 16 }}>×</button>
@@ -1194,10 +1194,10 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
         </>
       )}
 
-      {/* ── EDIT GOALS ── */}
+      {/* ── Edit goals ── */}
       {section === 'edit' && (
-        <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 14, padding: '16px', marginBottom: 12 }}>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5, marginBottom: 14 }}>EDIT PROFILE & GOALS</div>
+        <div style={{ background: '#131313', border: '1px solid #222', borderRadius: 16, padding: '16px', marginBottom: 12 }}>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5, marginBottom: 14 }}>Edit profile & goals</div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
             <input value={form.full_name || ''} onChange={e => set('full_name', e.target.value)} placeholder="Name" style={inputStyle}/>
@@ -1214,27 +1214,27 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
 
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#999', letterSpacing: 1, marginBottom: 6 }}>GOAL</div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-            {[['lose_fat','LOSE FAT','#ff9f47'],['gain_muscle','BUILD','#47c8ff'],['recomp','RECOMP','#e8ff47']].map(([k,l,c]) => (
+            {[['lose_fat','Lose fat','#f4a261'],['gain_muscle','BUILD','#81b29a'],['recomp','Recomp','#f4a261']].map(([k,l,c]) => (
               <button key={k} onClick={() => set('goal_type', k)} style={optBtn(form.goal_type===k, c)}>{l}</button>
             ))}
           </div>
 
           <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#999', letterSpacing: 1, marginBottom: 6 }}>PACE</div>
           <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-            {[['conservative','STEADY','#4aff7a'],['standard','BALANCED','#e8ff47'],['aggressive','AGGRESSIVE','#ff6b6b']].map(([k,l,c]) => (
+            {[['conservative','Steady','#6bcb96'],['standard','Balanced','#f4a261'],['aggressive','Aggressive','#e07a5f']].map(([k,l,c]) => (
               <button key={k} onClick={() => set('pace', k)} style={optBtn(form.pace===k, c)}>{l}</button>
             ))}
           </div>
 
-          <button onClick={previewMacros} style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #333', borderRadius: 8, color: '#bbb', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer', marginBottom: recalcPreview ? 8 : 14, letterSpacing: 1 }}>↻ RECALCULATE MACROS</button>
+          <button onClick={previewMacros} style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #333', borderRadius: 8, color: '#bbb', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer', marginBottom: recalcPreview ? 8 : 14, letterSpacing: 1 }}>↻ Recalculate targets</button>
 
           {recalcPreview && (
-            <div style={{ background: '#0d0d0d', border: '1px solid #1a3a1a', borderRadius: 10, padding: '12px', marginBottom: 14 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a3a2a', letterSpacing: 1, marginBottom: 8 }}>NEW TARGETS PREVIEW</div>
+            <div style={{ background: '#0d0d0d', border: '1px solid #1a3a1a', borderRadius: 12, padding: '12px', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a3a2a', letterSpacing: 1, marginBottom: 8 }}>New targets preview</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
-                {[['CAL',recalcPreview.calories,'#e8ff47'],['PRO',recalcPreview.protein+'g','#47c8ff'],['CARB',recalcPreview.carbs+'g','#ff9f47'],['FAT',recalcPreview.fat+'g','#c447ff']].map(([l,v,c])=>(
+                {[['CAL',recalcPreview.calories,'#f4a261'],['PRO',recalcPreview.protein+'g','#81b29a'],['CARB',recalcPreview.carbs+'g','#f4a261'],['FAT',recalcPreview.fat+'g','#b07dd1']].map(([l,v,c])=>(
                   <div key={String(l)} style={{ textAlign: 'center', padding: '6px 0' }}>
-                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: String(c), lineHeight: 1 }}>{v}</div>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 16, color: String(c), lineHeight: 1 }}>{v}</div>
                     <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#999', marginTop: 2 }}>{l}</div>
                   </div>
                 ))}
@@ -1243,8 +1243,8 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
           )}
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => { setSection('overview'); setRecalcPreview(null) }} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #2e2e35', borderRadius: 8, color: '#777', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer' }}>CANCEL</button>
-            <button onClick={saveProfile} disabled={saving} style={{ flex: 2, padding: '12px', background: saving ? '#1e1e22' : '#e8ff47', border: 'none', borderRadius: 8, color: '#111114', fontFamily: "'Bebas Neue',sans-serif", fontSize: 14, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'SAVING...' : 'SAVE'}</button>
+            <button onClick={() => { setSection('overview'); setRecalcPreview(null) }} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #2e2e35', borderRadius: 8, color: '#777', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={saveProfile} disabled={saving} style={{ flex: 2, padding: '12px', background: saving ? '#1e1e22' : '#f4a261', border: 'none', borderRadius: 8, color: '#111114', fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 14, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'Saving...' : 'SAVE'}</button>
           </div>
         </div>
       )}
@@ -1336,44 +1336,44 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
   }
   const optionStyle = (active: boolean, color: string): React.CSSProperties => ({
     flex: 1, padding: '14px 10px', background: active ? color + '18' : '#18181c',
-    border: `1px solid ${active ? color : '#2e2e35'}`, borderRadius: 10,
+    border: `1px solid ${active ? color : '#2e2e35'}`, borderRadius: 12,
     color: active ? color : '#444', cursor: 'pointer', textAlign: 'center',
     fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 0.5, lineHeight: 1.4,
     transition: 'all 0.15s'
   })
 
   const goalOptions = [
-    { key: 'lose_fat', label: 'LOSE FAT', sub: 'Reduce body fat\nwhile keeping muscle', color: '#ff9f47' },
-    { key: 'gain_muscle', label: 'BUILD MUSCLE', sub: 'Maximize muscle\ngrowth and strength', color: '#47c8ff' },
-    { key: 'recomp', label: 'RECOMP', sub: 'Lose fat and build\nmuscle simultaneously', color: '#e8ff47' },
+    { key: 'lose_fat', label: 'Lose fat', sub: 'Reduce body fat\nwhile keeping muscle', color: '#f4a261' },
+    { key: 'gain_muscle', label: 'Build muscle', sub: 'Maximize muscle\ngrowth and strength', color: '#81b29a' },
+    { key: 'recomp', label: 'Recomp', sub: 'Lose fat and build\nmuscle simultaneously', color: '#f4a261' },
   ]
   const paceOptions = [
-    { key: 'conservative', label: 'STEADY', sub: 'Slower, sustainable\nminimal sacrifice', color: '#4aff7a' },
-    { key: 'standard', label: 'BALANCED', sub: 'Proven results\nrecommended', color: '#e8ff47' },
-    { key: 'aggressive', label: 'AGGRESSIVE', sub: 'Fast results\nhigh discipline', color: '#ff6b6b' },
+    { key: 'conservative', label: 'Steady', sub: 'Slower, sustainable\nminimal sacrifice', color: '#6bcb96' },
+    { key: 'standard', label: 'Balanced', sub: 'Proven results\nrecommended', color: '#f4a261' },
+    { key: 'aggressive', label: 'Aggressive', sub: 'Fast results\nhigh discipline', color: '#e07a5f' },
   ]
 
   return (
     <div style={{ background: '#0d0d0d', minHeight: '100vh', color: '#eee', fontFamily: "'DM Sans',sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
-      <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=DM+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       <div style={{ width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 36, letterSpacing: 4, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RECOMP</div>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#999', letterSpacing: 2, marginTop: 2 }}>BUILD YOUR PLAN</div>
+          <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 36, letterSpacing: 4, background: 'linear-gradient(90deg,#f4a261,#81b29a)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Recomp</div>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#999', letterSpacing: 2, marginTop: 2 }}>Let's get started</div>
         </div>
 
         {/* Step indicator */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 28 }}>
           {STEP_LABELS.map((l, i) => (
-            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= step ? '#e8ff47' : '#2a2a30', transition: 'background 0.3s' }}/>
+            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= step ? '#f4a261' : '#2a2a30', transition: 'background 0.3s' }}/>
           ))}
         </div>
 
         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 2, marginBottom: 6 }}>STEP {step + 1} OF 4</div>
-        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, letterSpacing: 2, color: '#bbb', marginBottom: 20 }}>{STEP_LABELS[step].toUpperCase()}</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 26, letterSpacing: 2, color: '#bbb', marginBottom: 20 }}>{STEP_LABELS[step].toUpperCase()}</div>
 
         {/* Step 0 — About You */}
         {step === 0 && (
@@ -1397,7 +1397,7 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
             {goalOptions.map(g => (
               <button key={g.key} onClick={() => set('goalType', g.key)} style={{ ...optionStyle(profile.goalType === g.key, g.color), display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '16px 18px' }}>
                 <div>
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{g.label}</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{g.label}</div>
                   <div style={{ fontSize: 10, color: profile.goalType === g.key ? g.color + 'cc' : '#333', marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{g.sub}</div>
                 </div>
               </button>
@@ -1411,7 +1411,7 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
             {paceOptions.map(p => (
               <button key={p.key} onClick={() => set('pace', p.key)} style={{ ...optionStyle(profile.pace === p.key, p.color), display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '16px 18px' }}>
                 <div>
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{p.label}</div>
+                  <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{p.label}</div>
                   <div style={{ fontSize: 10, color: profile.pace === p.key ? p.color + 'cc' : '#333', marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{p.sub}</div>
                 </div>
               </button>
@@ -1422,17 +1422,17 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
         {/* Step 3 — Plan reveal */}
         {step === 3 && macros && (
           <div>
-            <div style={{ background: '#131313', border: '1px solid #2e2e35', borderRadius: 14, padding: '20px', marginBottom: 14 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5, marginBottom: 14 }}>YOUR DAILY TARGETS</div>
+            <div style={{ background: '#131313', border: '1px solid #2e2e35', borderRadius: 16, padding: '20px', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', letterSpacing: 1.5, marginBottom: 14 }}>YOUR Daily targets</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
                 {[
-                  ['CALORIES', String(macros.calories), '#e8ff47'],
-                  ['PROTEIN', `${macros.protein}g`, '#47c8ff'],
-                  ['CARBS', `${macros.carbs}g`, '#ff9f47'],
-                  ['FAT', `${macros.fat}g`, '#c447ff'],
+                  ['CALORIES', String(macros.calories), '#f4a261'],
+                  ['PROTEIN', `${macros.protein}g`, '#81b29a'],
+                  ['CARBS', `${macros.carbs}g`, '#f4a261'],
+                  ['FAT', `${macros.fat}g`, '#b07dd1'],
                 ].map(([l, v, c]) => (
-                  <div key={l} style={{ background: '#0d0d0d', border: `1px solid ${c}22`, borderRadius: 10, padding: '14px', textAlign: 'center' }}>
-                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, color: c, lineHeight: 1 }}>{v}</div>
+                  <div key={l} style={{ background: '#0d0d0d', border: `1px solid ${c}22`, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+                    <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 28, color: c, lineHeight: 1 }}>{v}</div>
                     <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#999', letterSpacing: 1, marginTop: 4 }}>{l}</div>
                   </div>
                 ))}
@@ -1444,7 +1444,7 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
                 </div>
                 <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#aaa', display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
                   <span>DAILY {macros.calories < macros.tdee ? 'DEFICIT' : 'SURPLUS'}</span>
-                  <span style={{ color: macros.calories < macros.tdee ? '#4aff7a' : '#ff9f47' }}>{Math.abs(macros.calories - macros.tdee)} cal</span>
+                  <span style={{ color: macros.calories < macros.tdee ? '#6bcb96' : '#f4a261' }}>{Math.abs(macros.calories - macros.tdee)} cal</span>
                 </div>
               </div>
             </div>
@@ -1457,13 +1457,13 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
         {/* Nav buttons */}
         <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
           {step > 0 && (
-            <button onClick={() => setStep(s => s - 1)} style={{ flex: 1, padding: 14, background: 'transparent', border: '1px solid #2e2e35', borderRadius: 10, color: '#bbb', fontFamily: "'DM Mono',monospace", fontSize: 12, cursor: 'pointer' }}>BACK</button>
+            <button onClick={() => setStep(s => s - 1)} style={{ flex: 1, padding: 14, background: 'transparent', border: '1px solid #2e2e35', borderRadius: 12, color: '#bbb', fontFamily: "'DM Mono',monospace", fontSize: 12, cursor: 'pointer' }}>BACK</button>
           )}
           {step < 3 ? (
-            <button onClick={() => setStep(s => s + 1)} disabled={!canNext} style={{ flex: 2, padding: 14, background: canNext ? '#e8ff47' : '#1e1e22', border: 'none', borderRadius: 10, color: '#111114', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: canNext ? 'pointer' : 'default', transition: 'background 0.2s' }}>NEXT</button>
+            <button onClick={() => setStep(s => s + 1)} disabled={!canNext} style={{ flex: 2, padding: 14, background: canNext ? '#f4a261' : '#1e1e22', border: 'none', borderRadius: 12, color: '#111114', fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 16, letterSpacing: 2, cursor: canNext ? 'pointer' : 'default', transition: 'background 0.2s' }}>NEXT</button>
           ) : (
-            <button onClick={save} disabled={saving} style={{ flex: 2, padding: 14, background: saving ? '#1e1e22' : '#e8ff47', border: 'none', borderRadius: 10, color: '#111114', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>
-              {saving ? 'SAVING...' : "LET'S GO"}
+            <button onClick={save} disabled={saving} style={{ flex: 2, padding: 14, background: saving ? '#1e1e22' : '#f4a261', border: 'none', borderRadius: 12, color: '#111114', fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 16, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>
+              {saving ? 'Saving...' : "LET'S GO"}
             </button>
           )}
         </div>
@@ -1493,37 +1493,37 @@ function LandingPage() {
         .fu1{animation:fadeUp 0.6s 0.1s both} .fu2{animation:fadeUp 0.6s 0.25s both} .fu3{animation:fadeUp 0.6s 0.4s both} .fu4{animation:fadeUp 0.6s 0.55s both}
         .lp-cta:hover{background:#f5ff70!important;transform:translateY(-1px)}
         .lp-cta{transition:all 0.15s}
-        .lp-sec:hover{border-color:#e8ff4733!important;background:#0e0e0e!important}
+        .lp-sec:hover{border-color:#f4a26133!important;background:#0e0e0e!important}
         .lp-sec{transition:all 0.2s}
         .lp-out:hover{border-color:#333!important;color:#666!important}
         .lp-out{transition:all 0.15s}
       `}</style>
       {/* Nav */}
       <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: scrolled ? '#111114ee' : 'transparent', backdropFilter: scrolled ? 'blur(12px)' : 'none', borderBottom: `1px solid ${scrolled ? '#1c1c22' : 'transparent'}`, transition: 'all 0.3s' }}>
-        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, letterSpacing: 4, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RECOMP</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 22, letterSpacing: 4, background: 'linear-gradient(90deg,#f4a261,#81b29a)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Recomp</div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: 'transparent', border: '1px solid #2e2e35', borderRadius: 8, color: '#bbb', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer' }}>LOG IN</button>
-          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: '#e8ff47', border: 'none', borderRadius: 8, color: '#111114', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>GET STARTED</button>
+          <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: 'transparent', border: '1px solid #2e2e35', borderRadius: 8, color: '#bbb', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer' }}>Log in</button>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: '#f4a261', border: 'none', borderRadius: 8, color: '#111114', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>Get started</button>
         </div>
       </nav>
       {/* Hero */}
       <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 24px 80px', textAlign: 'center' as const, position: 'relative' }}>
-        <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 500, background: 'radial-gradient(circle, #e8ff4708 0%, transparent 70%)', pointerEvents: 'none' }}/>
-        <div className="fu1" style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: '#e8ff47', letterSpacing: 3, marginBottom: 20 }}>AI-POWERED BODY RECOMPOSITION</div>
-        <h1 className="fu2" style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 'clamp(52px,12vw,90px)', letterSpacing: 5, lineHeight: 0.95, marginBottom: 24, background: 'linear-gradient(180deg,#fff 0%,#555 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          TRACK.<br/>TRAIN.<br/>TRANSFORM.
+        <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 500, background: 'radial-gradient(circle, #f4a26108 0%, transparent 70%)', pointerEvents: 'none' }}/>
+        <div className="fu1" style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: '#f4a261', letterSpacing: 3, marginBottom: 20 }}>Nutrition & training, simplified</div>
+        <h1 className="fu2" style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 'clamp(52px,12vw,90px)', letterSpacing: 5, lineHeight: 0.95, marginBottom: 24, background: 'linear-gradient(180deg,#fff 0%,#555 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Progress,<br/>one day<br/>at a time.
         </h1>
         <p className="fu3" style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: '#aaa', maxWidth: 400, lineHeight: 1.7, marginBottom: 36 }}>
           Log food by talking. Grade your workouts with AI. Watch your body change one check-in at a time.
         </p>
         <div className="fu4" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, justifyContent: 'center', marginBottom: 60 }}>
-          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#111114', fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>GET STARTED</button>
-          <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: 'transparent', border: '1px solid #2e2e35', borderRadius: 10, color: '#999', fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>LOG IN</button>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: '#f4a261', border: 'none', borderRadius: 12, color: '#111114', fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>Get started</button>
+          <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: 'transparent', border: '1px solid #2e2e35', borderRadius: 12, color: '#999', fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>Log in</button>
         </div>
         <div className="fu4" style={{ display: 'flex', gap: 48, flexWrap: 'wrap' as const, justifyContent: 'center' }}>
           {[['AI-PARSED','Meals'],['INSTANT','Workout grades'],['ZERO','Manual entry']].map(([n,l]) => (
             <div key={n} style={{ textAlign: 'center' as const }}>
-              <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 24, color: '#e8ff47', letterSpacing: 2 }}>{n}</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 24, color: '#f4a261', letterSpacing: 2 }}>{n}</div>
               <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#222', letterSpacing: 1, marginTop: 3 }}>{l}</div>
             </div>
           ))}
@@ -1534,16 +1534,16 @@ function LandingPage() {
         <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#222', letterSpacing: 2, textAlign: 'center' as const, marginBottom: 40 }}>EVERYTHING YOU NEED</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 10 }}>
           {features.map(f => (
-            <div key={f.title} className="lp-sec" style={{ background: '#1c1c22', border: '1px solid #2e2e35', borderRadius: 14, padding: '22px' }}>
+            <div key={f.title} className="lp-sec" style={{ background: '#1c1c22', border: '1px solid #2e2e35', borderRadius: 16, padding: '22px' }}>
               <div style={{ fontSize: 22, marginBottom: 10 }}>{f.icon}</div>
-              <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: '#aaa', letterSpacing: 2, marginBottom: 8 }}>{f.title}</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 16, color: '#aaa', letterSpacing: 2, marginBottom: 8 }}>{f.title}</div>
               <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#999', lineHeight: 1.7 }}>{f.body}</div>
             </div>
           ))}
         </div>
         <div style={{ textAlign: 'center' as const, marginTop: 60 }}>
-          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 44px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#111114', fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, letterSpacing: 3, cursor: 'pointer' }}>GET STARTED</button>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#777', marginTop: 14, letterSpacing: 1 }}>NO ADS · YOUR DATA IS YOURS</div>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 44px', background: '#f4a261', border: 'none', borderRadius: 12, color: '#111114', fontFamily: "'Plus Jakarta Sans',sans-serif", fontSize: 20, letterSpacing: 3, cursor: 'pointer' }}>Get started</button>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#777', marginTop: 14, letterSpacing: 1 }}>Your data stays yours</div>
         </div>
       </section>
     </div>
@@ -1610,7 +1610,7 @@ export default function HomePage() {
 
   if (loading) return (
     <div style={{background:'#0d0d0d',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
-      <div style={{width:24,height:24,border:'2px solid #2e2e35',borderTop:'2px solid #e8ff47',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
+      <div style={{width:24,height:24,border:'2px solid #2e2e35',borderTop:'2px solid #f4a261',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
@@ -1650,47 +1650,47 @@ export default function HomePage() {
 
   return (
     <div style={{background:'#0d0d0d',minHeight:'100vh',color:'#eee',fontFamily:"'DM Sans',sans-serif",maxWidth:480,margin:'0 auto'}}>
-      <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=DM+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
       {/* Header */}
       <div style={{background:'#0d0d0d',borderBottom:'1px solid #1e1e22',padding:'14px 14px 0',position:'sticky',top:0,zIndex:10}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
           <div>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:3,background:'linear-gradient(90deg,#e8ff47,#47c8ff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>RECOMP</div>
+            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:24,letterSpacing:3,background:'linear-gradient(90deg,#f4a261,#81b29a)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>Recomp</div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#999',letterSpacing:1.5,marginTop:1}}>208 → 195 · 6′2 · 38YO</div>
           </div>
           <div style={{display:'flex',gap:4,alignItems:'stretch'}}>
             {/* Calories In / Burned / Remaining */}
             <div style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:8,padding:'6px 9px',display:'flex',gap:9,alignItems:'center'}}>
               <div style={{textAlign:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#e8ff47',lineHeight:1}}>{totalCals}</div>
+                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:16,color:'#f4a261',lineHeight:1}}>{totalCals}</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#999',letterSpacing:0.5,marginTop:1}}>IN</div>
               </div>
               <div style={{width:1,height:22,background:'#2a2a30'}}/>
               <div style={{textAlign:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#ff6b6b',lineHeight:1}}>{calsBurned||0}</div>
+                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:16,color:'#e07a5f',lineHeight:1}}>{calsBurned||0}</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#999',letterSpacing:0.5,marginTop:1}}>BURN</div>
               </div>
               <div style={{width:1,height:22,background:'#2a2a30'}}/>
               <div style={{textAlign:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:calsRemaining<0?'#ff6b6b':'#4aff7a',lineHeight:1}}>{Math.abs(calsRemaining)}</div>
+                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:16,color:calsRemaining<0?'#e07a5f':'#6bcb96',lineHeight:1}}>{Math.abs(calsRemaining)}</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#999',letterSpacing:0.5,marginTop:1}}>{calsRemaining<0?'OVER':'LEFT'}</div>
               </div>
             </div>
             {/* Nutrition + Workout scores */}
             <div style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:8,padding:'6px 9px',display:'flex',gap:9,alignItems:'center'}}>
               <div style={{textAlign:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:dailyNutritionScore?ratingColor(dailyNutritionScore):'#555',lineHeight:1}}>{dailyNutritionScore||'N/A'}</div>
+                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:16,color:dailyNutritionScore?ratingColor(dailyNutritionScore):'#555',lineHeight:1}}>{dailyNutritionScore||'N/A'}</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#999',letterSpacing:0.5,marginTop:1}}>NUT</div>
               </div>
               <div style={{width:1,height:22,background:'#2a2a30'}}/>
               <div style={{textAlign:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:daySession?.rating?ratingColor(daySession.rating):'#555',lineHeight:1}}>{daySession?.rating||'N/A'}</div>
+                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:16,color:daySession?.rating?ratingColor(daySession.rating):'#555',lineHeight:1}}>{daySession?.rating||'N/A'}</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#999',letterSpacing:0.5,marginTop:1}}>WRK</div>
               </div>
             </div>
-            <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href='/auth' }} style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:8,padding:'6px 7px',color:'#777',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer'}}>OUT</button>
+            <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href='/auth' }} style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:8,padding:'6px 7px',color:'#777',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer'}}>Sign out</button>
           </div>
         </div>
 
@@ -1705,10 +1705,10 @@ export default function HomePage() {
                 const isWknd=dow===0||dow===6
                 return (
                   <button key={date} onClick={()=>setActiveDate(date)} style={{flex:1,padding:'5px 2px',background:isActive?'#2a2a30':'transparent',border:`1px solid ${isActive?'#333':'#1c1c22'}`,borderRadius:5,cursor:'pointer',textAlign:'center'}}>
-                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:isActive?'#e8ff47':isWknd?'#ff6b6b44':'#555',marginBottom:2}}>{dayLabels[i]}</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:isActive?'#f4a261':isWknd?'#e07a5f44':'#555',marginBottom:2}}>{dayLabels[i]}</div>
                     <div style={{display:'flex',justifyContent:'center',gap:2}}>
-                      <div style={{width:4,height:4,borderRadius:'50%',background:hasFood?(isWknd?'#ff6b6b':'#47c8ff'):'#2a2a30'}}/>
-                      <div style={{width:4,height:4,borderRadius:'50%',background:hasSess?'#4aff7a':'#2a2a30'}}/>
+                      <div style={{width:4,height:4,borderRadius:'50%',background:hasFood?(isWknd?'#e07a5f':'#81b29a'):'#2a2a30'}}/>
+                      <div style={{width:4,height:4,borderRadius:'50%',background:hasSess?'#6bcb96':'#2a2a30'}}/>
                     </div>
                   </button>
                 )
@@ -1718,7 +1718,7 @@ export default function HomePage() {
               <button onClick={()=>shiftDate(-1)} disabled={isFirstDay} style={{background:'none',border:'1px solid #181818',borderRadius:5,color:isFirstDay?'#1c1c22':'#777',cursor:isFirstDay?'default':'pointer',padding:'3px 10px',fontSize:14}}>‹</button>
               <div style={{textAlign:'center'}}>
                 <div style={{fontSize:12,color:'#999',fontWeight:600}}>{dateLabel()}</div>
-                {isToday&&<div style={{fontSize:8,color:'#e8ff47',fontFamily:"'DM Mono',monospace",letterSpacing:1}}>TODAY</div>}
+                {isToday&&<div style={{fontSize:8,color:'#f4a261',fontFamily:"'DM Mono',monospace",letterSpacing:1}}>TODAY</div>}
               </div>
               <button onClick={()=>shiftDate(1)} disabled={isToday} style={{background:'none',border:'1px solid #181818',borderRadius:5,color:isToday?'#181818':'#777',cursor:isToday?'default':'pointer',padding:'3px 10px',fontSize:14}}>›</button>
             </div>
@@ -1726,8 +1726,8 @@ export default function HomePage() {
         )}
 
         <div style={{display:'flex'}}>
-          {[['food','NUTRITION','#e8ff47'],['workout','TRAINING','#47c8ff'],['trends','TRENDS','#4aff7a'],['profile','PROFILE','#c447ff']].map(([key,label,color])=>(
-            <button key={key} onClick={()=>setTab(key)} style={{flex:1,background:'none',border:'none',borderBottom:tab===key?`2px solid ${color}`:'2px solid transparent',color:tab===key?color:'#999',fontFamily:"'Bebas Neue',sans-serif",fontSize:10,letterSpacing:1.5,padding:'7px 0 9px',cursor:'pointer',transition:'all 0.2s'}}>{label}</button>
+          {[['food','NUTRITION','#f4a261'],['workout','TRAINING','#81b29a'],['trends','TRENDS','#6bcb96'],['profile','PROFILE','#b07dd1']].map(([key,label,color])=>(
+            <button key={key} onClick={()=>setTab(key)} style={{flex:1,background:'none',border:'none',borderBottom:tab===key?`2px solid ${color}`:'2px solid transparent',color:tab===key?color:'#999',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:10,letterSpacing:1.5,padding:'7px 0 9px',cursor:'pointer',transition:'all 0.2s'}}>{label}</button>
           ))}
         </div>
       </div>
