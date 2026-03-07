@@ -806,12 +806,13 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
   const [checkInWeight, setCheckInWeight] = useState('')
   const [checkInNotes, setCheckInNotes] = useState('')
   const [checkInSaving, setCheckInSaving] = useState(false)
+  const [showAllLogs, setShowAllLogs] = useState(false)
   const [section, setSection] = useState<'overview'|'checkin'|'edit'>('overview')
 
   const loadData = async () => {
     const [{ data: prof }, { data: wl }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('weight_logs').select('*').eq('user_id', userId).order('logged_date', { ascending: false }).limit(30)
+      supabase.from('weight_logs').select('*').eq('user_id', userId).order('logged_date', { ascending: false }).limit(100)
     ])
     setProfile(prof || {})
     setForm(prof || {})
@@ -861,8 +862,11 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
     if (!checkInWeight) return
     setCheckInSaving(true)
     const today = todayKey()
-    await supabase.from('weight_logs').upsert({ user_id: userId, logged_date: today, weight_lb: +checkInWeight, notes: checkInNotes || null }, { onConflict: 'user_id,logged_date' })
-    // Update profile current weight
+    const { error } = await supabase.from('weight_logs').upsert(
+      { user_id: userId, logged_date: today, weight_lb: +checkInWeight, notes: checkInNotes || null },
+      { onConflict: 'user_id,logged_date' }
+    )
+    if (error) { console.error('weight_logs upsert error:', error); alert('Save failed: ' + error.message); setCheckInSaving(false); return }
     await supabase.from('profiles').update({ weight_lb: +checkInWeight }).eq('id', userId)
     setProfile((p: any) => ({ ...p, weight_lb: +checkInWeight }))
     await loadData()
@@ -1034,30 +1038,42 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
               </button>
             </div>
 
-            {/* History rows */}
-            {weightLogs.map((w: any, i: number) => {
-              const prev = weightLogs[i + 1]
-              const wt = parseFloat(w.weight_lb)
-              const delta = prev ? parseFloat((wt - parseFloat(prev.weight_lb)).toFixed(1)) : null
-              const isStart = i === weightLogs.length - 1
-              const isToday = w.logged_date === todayStr
+            {/* History rows — show up to 10, with expand */}
+            {(() => {
+              const visible = showAllLogs ? weightLogs : weightLogs.slice(0, 10)
               return (
-                <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #0a0a0a' : 'none', gap: 8 }}>
-                  <div style={{ flex: 1, fontFamily: "'DM Mono',monospace", fontSize: 9, color: isToday ? '#666' : '#2a2a2a' }}>
-                    {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    {isToday && <span style={{ color: '#e8ff4788', marginLeft: 4 }}>·now</span>}
-                    {isStart && !isToday && <span style={{ color: '#333', marginLeft: 4 }}>·start</span>}
-                  </div>
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 15, color: isToday ? '#aaa' : '#444' }}>
-                    {wt}<span style={{ fontSize: 8, color: '#252525' }}> lb</span>
-                  </div>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 38, textAlign: 'right' as const, color: delta === null ? '#1a1a1a' : delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333' }}>
-                    {delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
-                  </div>
-                  <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#1e1e1e', cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1 }}>×</button>
-                </div>
+                <>
+                  {visible.map((w: any, i: number) => {
+                    const prev = weightLogs[weightLogs.indexOf(w) + 1]
+                    const wt = parseFloat(w.weight_lb)
+                    const delta = prev ? parseFloat((wt - parseFloat(prev.weight_lb)).toFixed(1)) : null
+                    const isStart = weightLogs.indexOf(w) === weightLogs.length - 1
+                    const isToday = w.logged_date === todayStr
+                    return (
+                      <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: i < visible.length - 1 || weightLogs.length > 10 ? '1px solid #0a0a0a' : 'none', gap: 8 }}>
+                        <div style={{ flex: 1, fontFamily: "'DM Mono',monospace", fontSize: 9, color: isToday ? '#888' : '#333' }}>
+                          {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {isToday && <span style={{ color: '#e8ff4799', marginLeft: 4 }}>·today</span>}
+                          {isStart && !isToday && <span style={{ color: '#444', marginLeft: 4 }}>·start</span>}
+                        </div>
+                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 15, color: isToday ? '#bbb' : '#555' }}>
+                          {wt}<span style={{ fontSize: 8, color: '#252525' }}> lb</span>
+                        </div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 40, textAlign: 'right' as const, color: delta === null ? '#1a1a1a' : delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333' }}>
+                          {delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
+                        </div>
+                        <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#1e1e1e', cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1 }}>×</button>
+                      </div>
+                    )
+                  })}
+                  {weightLogs.length > 10 && (
+                    <button onClick={() => setShowAllLogs(v => !v)} style={{ width: '100%', marginTop: 8, padding: '6px', background: 'transparent', border: '1px solid #1a1a1a', borderRadius: 6, color: '#2a2a2a', fontFamily: "'DM Mono',monospace", fontSize: 8, cursor: 'pointer', letterSpacing: 1 }}>
+                      {showAllLogs ? '↑ SHOW LESS' : `↓ SHOW ALL ${weightLogs.length} ENTRIES`}
+                    </button>
+                  )}
+                </>
               )
-            })}
+            })()}
           </div>
         </>
       )}
