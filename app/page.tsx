@@ -806,13 +806,12 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
   const [checkInWeight, setCheckInWeight] = useState('')
   const [checkInNotes, setCheckInNotes] = useState('')
   const [checkInSaving, setCheckInSaving] = useState(false)
-  const [showAllLogs, setShowAllLogs] = useState(false)
   const [section, setSection] = useState<'overview'|'checkin'|'edit'>('overview')
 
   const loadData = async () => {
     const [{ data: prof }, { data: wl }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('weight_logs').select('*').eq('user_id', userId).order('logged_date', { ascending: false }).limit(100)
+      supabase.from('weight_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
     ])
     setProfile(prof || {})
     setForm(prof || {})
@@ -862,9 +861,8 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
     if (!checkInWeight) return
     setCheckInSaving(true)
     const today = todayKey()
-    const { error } = await supabase.from('weight_logs').upsert(
-      { user_id: userId, logged_date: today, weight_lb: +checkInWeight, notes: checkInNotes || null },
-      { onConflict: 'user_id,logged_date' }
+    const { error } = await supabase.from('weight_logs').insert(
+      { user_id: userId, logged_date: today, weight_lb: +checkInWeight, notes: checkInNotes || null }
     )
     if (error) { console.error('weight_logs upsert error:', error); alert('Save failed: ' + error.message); setCheckInSaving(false); return }
     await supabase.from('profiles').update({ weight_lb: +checkInWeight }).eq('id', userId)
@@ -906,7 +904,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
   const targetWeight = profile?.target_weight_lb ? +profile.target_weight_lb : null
   const toGoal = latestWeight !== null && targetWeight ? +(latestWeight - targetWeight).toFixed(1) : null
   const todayStr = todayKey()
-  const todayCheckedIn = weightLogs.some((w:any) => w.logged_date === todayStr)
+  const todayCheckedIn = weightLogs.length > 0 && weightLogs[0]?.logged_date === todayStr
 
   // Pre-fill check-in weight with today's entry if already logged
   useEffect(() => {
@@ -1044,7 +1042,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             )}
             {weightLogs.length > 0 && (() => {
               const startWt = parseFloat(weightLogs[weightLogs.length - 1]?.weight_lb)
-              const visible = showAllLogs ? weightLogs : weightLogs.slice(0, 10)
+              const visible = weightLogs
               return (
                 <>
                   {/* Column headers */}
@@ -1083,11 +1081,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
                       </div>
                     )
                   })}
-                  {weightLogs.length > 10 && (
-                    <button onClick={() => setShowAllLogs(v => !v)} style={{ width: '100%', marginTop: 8, padding: '6px', background: 'transparent', border: '1px solid #1a1a1a', borderRadius: 6, color: '#2a2a2a', fontFamily: "'DM Mono',monospace", fontSize: 8, cursor: 'pointer', letterSpacing: 1 }}>
-                      {showAllLogs ? '↑ SHOW LESS' : `↓ SHOW ALL ${weightLogs.length} ENTRIES`}
-                    </button>
-                  )}
+
                 </>
               )
             })()}
