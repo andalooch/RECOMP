@@ -305,7 +305,7 @@ function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>v
 }
 
 // ── Food Tab ──────────────────────────────────────────────────────────────
-function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; activeDate:string; userId:string; onRefresh:()=>void }) {
+function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:FoodItem[]; activeDate:string; userId:string; onRefresh:()=>void; macroGoal:typeof MACRO_GOAL }) {
   const [modal, setModal] = useState<string|null>(null)
   const [ratingMeal, setRatingMeal] = useState<any|null>(null)
   const [forceRefresh, setForceRefresh] = useState(false)
@@ -363,10 +363,10 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#1e1e1e',letterSpacing:1}}>RATE MEALS TO SCORE</div>
           )}
         </div>
-        <MacroBar label="Cal" value={totals.calories} goal={MACRO_GOAL.calories} color="#e8ff47"/>
-        <MacroBar label="Protein" value={Math.round(totals.protein)} goal={MACRO_GOAL.protein} color="#47c8ff"/>
-        <MacroBar label="Carbs" value={Math.round(totals.carbs)} goal={MACRO_GOAL.carbs} color="#ff9f47"/>
-        <MacroBar label="Fat" value={Math.round(totals.fat)} goal={MACRO_GOAL.fat} color="#c447ff"/>
+        <MacroBar label="Cal" value={totals.calories} goal={macroGoal.calories} color="#e8ff47"/>
+        <MacroBar label="Protein" value={Math.round(totals.protein)} goal={macroGoal.protein} color="#47c8ff"/>
+        <MacroBar label="Carbs" value={Math.round(totals.carbs)} goal={macroGoal.carbs} color="#ff9f47"/>
+        <MacroBar label="Fat" value={Math.round(totals.fat)} goal={macroGoal.fat} color="#c447ff"/>
       </div>
 
       {MEAL_SLOTS.map(meal => {
@@ -794,21 +794,589 @@ function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; act
   )
 }
 
-// ── Main App ──────────────────────────────────────────────────────────────
-export default function HomePage() {
+// ── Profile Tab ───────────────────────────────────────────────────────────
+function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; macroGoal: typeof MACRO_GOAL; onMacrosUpdated: (m: typeof MACRO_GOAL) => void }) {
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<any>({})
+  const [recalcPreview, setRecalcPreview] = useState<any>(null)
+  const [weightLogs, setWeightLogs] = useState<any[]>([])
+  const [checkInWeight, setCheckInWeight] = useState('')
+  const [checkInNotes, setCheckInNotes] = useState('')
+  const [checkInSaving, setCheckInSaving] = useState(false)
+  const [section, setSection] = useState<'overview'|'checkin'|'edit'>('overview')
+
+  const loadData = async () => {
+    const [{ data: prof }, { data: wl }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      supabase.from('weight_logs').select('*').eq('user_id', userId).order('logged_date', { ascending: false }).limit(30)
+    ])
+    setProfile(prof || {})
+    setForm(prof || {})
+    setWeightLogs(wl || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { loadData() }, [userId])
+
+  const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
+
+  const previewMacros = () => {
+    const heightIn = form.height_in || 0
+    if (!form.age || !form.weight_lb || !heightIn || !form.goal_type || !form.pace) return
+    const m = calculateMacros({ age: +form.age, heightIn: +heightIn, weightLb: +form.weight_lb, goalType: form.goal_type, pace: form.pace })
+    setRecalcPreview(m)
+  }
+
+  const saveProfile = async () => {
+    setSaving(true)
+    const updates: any = { ...form }
+    if (recalcPreview) {
+      updates.macro_calories = recalcPreview.calories
+      updates.macro_protein = recalcPreview.protein
+      updates.macro_carbs = recalcPreview.carbs
+      updates.macro_fat = recalcPreview.fat
+      updates.tdee = recalcPreview.tdee
+    }
+    await supabase.from('profiles').upsert({ id: userId, ...updates })
+    setProfile(updates)
+    if (recalcPreview) onMacrosUpdated({ calories: recalcPreview.calories, protein: recalcPreview.protein, carbs: recalcPreview.carbs, fat: recalcPreview.fat })
+    setRecalcPreview(null)
+    setEditing(false)
+    setSection('overview')
+    setSaving(false)
+  }
+
+  const saveCheckIn = async () => {
+    if (!checkInWeight) return
+    setCheckInSaving(true)
+    const today = todayKey()
+    await supabase.from('weight_logs').upsert({ user_id: userId, logged_date: today, weight_lb: +checkInWeight, notes: checkInNotes || null }, { onConflict: 'user_id,logged_date' })
+    // Update profile current weight
+    await supabase.from('profiles').update({ weight_lb: +checkInWeight }).eq('id', userId)
+    setProfile((p: any) => ({ ...p, weight_lb: +checkInWeight }))
+    setCheckInWeight('')
+    setCheckInNotes('')
+    setCheckInSaving(false)
+    setSection('overview')
+    await loadData()
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: '#0a0a0a', border: '1px solid #222', borderRadius: 7,
+    padding: '10px 12px', color: '#ccc', fontFamily: "'DM Mono',monospace",
+    fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box'
+  }
+  const optBtn = (active: boolean, color: string): React.CSSProperties => ({
+    flex: 1, padding: '9px 4px', background: active ? color + '18' : 'transparent',
+    border: `1px solid ${active ? color : '#1a1a1a'}`, borderRadius: 7,
+    color: active ? color : '#2a2a2a', cursor: 'pointer',
+    fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 0.5
+  })
+
+  const goalLabels: Record<string,string> = { lose_fat: 'LOSE FAT', gain_muscle: 'BUILD MUSCLE', recomp: 'RECOMP' }
+  const paceLabels: Record<string,string> = { conservative: 'STEADY', standard: 'BALANCED', aggressive: 'AGGRESSIVE' }
+  const goalColors: Record<string,string> = { lose_fat: '#ff9f47', gain_muscle: '#47c8ff', recomp: '#e8ff47' }
+  const paceColors: Record<string,string> = { conservative: '#4aff7a', standard: '#e8ff47', aggressive: '#ff6b6b' }
+
+  const displayMacros = recalcPreview || { calories: profile?.macro_calories, protein: profile?.macro_protein, carbs: profile?.macro_carbs, fat: profile?.macro_fat }
+
+  // Weight trend calc
+  const sortedLogs = [...weightLogs].sort((a,b) => a.logged_date.localeCompare(b.logged_date))
+  const firstWeight = sortedLogs[0]?.weight_lb
+  const latestWeight = sortedLogs[sortedLogs.length-1]?.weight_lb
+  const totalChange = firstWeight && latestWeight ? (latestWeight - firstWeight) : null
+  const targetWeight = profile?.target_weight_lb
+  const toGoal = latestWeight && targetWeight ? (latestWeight - targetWeight) : null
+  const todayCheckedIn = weightLogs.some(w => w.logged_date === todayKey())
+
+  // Mini sparkline — last 14 days
+  const spark = sortedLogs.slice(-14)
+  const sparkMin = spark.length ? Math.min(...spark.map((s:any) => s.weight_lb)) - 2 : 0
+  const sparkMax = spark.length ? Math.max(...spark.map((s:any) => s.weight_lb)) + 2 : 1
+  const sparkW = 260, sparkH = 48
+  const toX = (i: number) => (i / Math.max(spark.length - 1, 1)) * sparkW
+  const toY = (w: number) => sparkH - ((w - sparkMin) / (sparkMax - sparkMin)) * sparkH
+  const sparkPath = spark.map((s:any, i:number) => `${i===0?'M':'L'}${toX(i).toFixed(1)},${toY(s.weight_lb).toFixed(1)}`).join(' ')
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+      <div style={{ width: 18, height: 18, border: '2px solid #1e1e1e', borderTop: '2px solid #e8ff47', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
+    </div>
+  )
+
+  return (
+    <div style={{ padding: '0 14px 100px' }}>
+
+      {/* Section toggle */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        {([['overview','OVERVIEW'],['checkin','CHECK-IN'],['edit','EDIT GOALS']] as const).map(([k,l]) => (
+          <button key={k} onClick={() => setSection(k)} style={{ flex:1, padding: '8px 4px', background: section===k ? '#e8ff4710' : 'transparent', border: `1px solid ${section===k ? '#e8ff4744' : '#1a1a1a'}`, borderRadius: 7, color: section===k ? '#e8ff47' : '#2a2a2a', fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 0.5, cursor: 'pointer' }}>{l}</button>
+        ))}
+      </div>
+
+      {/* ── OVERVIEW ── */}
+      {section === 'overview' && (
+        <>
+          {/* Macro targets */}
+          <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>DAILY TARGETS</div>
+              {profile?.tdee && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a' }}>TDEE {profile.tdee} kcal · {Math.abs((profile.macro_calories||0) - profile.tdee)} cal {profile.macro_calories < profile.tdee ? 'deficit' : 'surplus'}</div>}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              {([['CAL', displayMacros?.calories, '#e8ff47'], ['PRO', displayMacros?.protein ? displayMacros.protein + 'g' : '—', '#47c8ff'], ['CARB', displayMacros?.carbs ? displayMacros.carbs + 'g' : '—', '#ff9f47'], ['FAT', displayMacros?.fat ? displayMacros.fat + 'g' : '—', '#c447ff']] as const).map(([l, v, c]) => (
+                <div key={l} style={{ background: '#080808', border: `1px solid ${c}22`, borderRadius: 10, padding: '12px 6px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: c, lineHeight: 1 }}>{v||'—'}</div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#252525', letterSpacing: 1, marginTop: 3 }}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 12 }}>STATS</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+              {[
+                ['NAME', profile.full_name || '—'],
+                ['AGE', profile.age ? profile.age + ' yrs' : '—'],
+                ['HEIGHT', profile.height_in ? `${Math.floor(profile.height_in/12)}′${profile.height_in%12}″` : '—'],
+                ['CURRENT', latestWeight ? latestWeight + ' lb' : profile.weight_lb ? profile.weight_lb + ' lb' : '—'],
+                ['TARGET', targetWeight ? targetWeight + ' lb' : '—'],
+                ['TO GO', toGoal !== null ? Math.abs(toGoal).toFixed(1) + ' lb ' + (toGoal > 0 ? '↓' : '↑') : '—'],
+              ].map(([l, v]) => (
+                <div key={String(l)} style={{ background: '#080808', borderRadius: 8, padding: '10px 12px' }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', letterSpacing: 1, marginBottom: 3 }}>{l}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#888', fontWeight: 600 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1, background: '#080808', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', letterSpacing: 1, marginBottom: 4 }}>GOAL</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 13, color: goalColors[profile.goal_type] || '#555', letterSpacing: 1 }}>{goalLabels[profile.goal_type] || '—'}</div>
+              </div>
+              <div style={{ flex: 1, background: '#080808', borderRadius: 8, padding: '10px 12px' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', letterSpacing: 1, marginBottom: 4 }}>PACE</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 13, color: paceColors[profile.pace] || '#555', letterSpacing: 1 }}>{paceLabels[profile.pace] || '—'}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Weight progress */}
+          <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>WEIGHT TREND</div>
+              {totalChange !== null && (
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 14, color: totalChange < 0 ? '#4aff7a' : totalChange > 0 ? '#ff6b6b' : '#555', letterSpacing: 1 }}>
+                  {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)} lb
+                </div>
+              )}
+            </div>
+            {spark.length > 1 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <svg width={sparkW} height={sparkH + 16} style={{ display: 'block' }}>
+                  {targetWeight && (
+                    <line x1={0} y1={toY(targetWeight)} x2={sparkW} y2={toY(targetWeight)} stroke="#e8ff4722" strokeWidth={1} strokeDasharray="4,4"/>
+                  )}
+                  <path d={sparkPath} fill="none" stroke="#47c8ff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+                  {spark.map((s:any, i:number) => (
+                    <circle key={i} cx={toX(i)} cy={toY(s.weight_lb)} r={2.5} fill="#47c8ff"/>
+                  ))}
+                  <text x={toX(spark.length-1)} y={toY(spark[spark.length-1].weight_lb) - 6} fill="#47c8ff" fontSize={9} fontFamily="DM Mono" textAnchor="middle">{spark[spark.length-1].weight_lb}</text>
+                </svg>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e', marginTop: 4 }}>{spark.length} check-ins · last 30 days</div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#1e1e1e', marginBottom: 8 }}>NO DATA YET</div>
+                <button onClick={() => setSection('checkin')} style={{ background: '#e8ff4710', border: '1px solid #e8ff4733', borderRadius: 7, color: '#e8ff47', fontFamily: "'DM Mono',monospace", fontSize: 9, padding: '7px 16px', cursor: 'pointer' }}>LOG FIRST CHECK-IN</button>
+              </div>
+            )}
+          </div>
+
+          {/* Recent check-ins */}
+          {weightLogs.length > 0 && (
+            <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 10 }}>RECENT CHECK-INS</div>
+              {weightLogs.slice(0, 7).map((w: any, i: number) => {
+                const prev = weightLogs[i + 1]
+                const delta = prev ? w.weight_lb - prev.weight_lb : null
+                return (
+                  <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < Math.min(weightLogs.length, 7) - 1 ? '1px solid #111' : 'none' }}>
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#666' }}>{new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                      {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', marginTop: 2 }}>{w.notes}</div>}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, color: '#888', lineHeight: 1 }}>{w.weight_lb} <span style={{ fontSize: 10, color: '#333' }}>lb</span></div>
+                      {delta !== null && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333', marginTop: 1 }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)}</div>}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── CHECK-IN ── */}
+      {section === 'checkin' && (
+        <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '20px', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>DAILY CHECK-IN</div>
+            {todayCheckedIn && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#4aff7a', letterSpacing: 1 }}>✓ LOGGED TODAY</div>}
+          </div>
+
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>WEIGHT (LB)</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <input
+              value={checkInWeight}
+              onChange={e => setCheckInWeight(e.target.value)}
+              placeholder={latestWeight ? String(latestWeight) : profile?.weight_lb ? String(profile.weight_lb) : 'e.g. 207.4'}
+              type="number" step="0.1"
+              style={{ ...inputStyle, flex: 1, fontSize: 20, padding: '12px 14px', color: '#ccc' }}
+            />
+            <div style={{ background: '#080808', border: '1px solid #1a1a1a', borderRadius: 7, padding: '10px 12px', display: 'flex', alignItems: 'center' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a' }}>
+                {latestWeight ? `last: ${latestWeight}` : '—'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>NOTES (OPTIONAL)</div>
+          <input value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)} placeholder="e.g. feeling lean, held water..." style={{ ...inputStyle, marginBottom: 16 }}/>
+
+          {checkInWeight && latestWeight && (
+            <div style={{ marginBottom: 14, padding: '10px 12px', background: '#080808', border: '1px solid #141414', borderRadius: 8 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
+                <span>CHANGE FROM LAST</span>
+                <span style={{ color: +checkInWeight < latestWeight ? '#4aff7a' : +checkInWeight > latestWeight ? '#ff6b6b' : '#555' }}>
+                  {(+checkInWeight - latestWeight) > 0 ? '+' : ''}{(+checkInWeight - latestWeight).toFixed(1)} lb
+                </span>
+              </div>
+              {targetWeight && (
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+                  <span>TO GOAL</span>
+                  <span style={{ color: '#555' }}>{Math.abs(+checkInWeight - targetWeight).toFixed(1)} lb</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <button onClick={saveCheckIn} disabled={!checkInWeight || checkInSaving} style={{ width: '100%', padding: '14px', background: !checkInWeight || checkInSaving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer' }}>
+            {checkInSaving ? 'SAVING...' : 'LOG CHECK-IN'}
+          </button>
+        </div>
+      )}
+
+      {/* ── EDIT GOALS ── */}
+      {section === 'edit' && (
+        <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 12 }}>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 14 }}>EDIT PROFILE & GOALS</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+            <input value={form.full_name || ''} onChange={e => set('full_name', e.target.value)} placeholder="Name" style={inputStyle}/>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input value={form.age || ''} onChange={e => set('age', e.target.value)} placeholder="Age" type="number" style={inputStyle}/>
+              <input value={form.weight_lb || ''} onChange={e => set('weight_lb', e.target.value)} placeholder="Weight (lb)" type="number" style={inputStyle}/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input value={form.height_in ? Math.floor(form.height_in/12) : ''} onChange={e => set('height_in', +e.target.value * 12 + ((form.height_in||0) % 12))} placeholder="Height ft" type="number" style={inputStyle}/>
+              <input value={form.height_in ? form.height_in % 12 : ''} onChange={e => set('height_in', Math.floor((form.height_in||0)/12)*12 + +e.target.value)} placeholder="Height in" type="number" style={inputStyle}/>
+            </div>
+            <input value={form.target_weight_lb || ''} onChange={e => set('target_weight_lb', e.target.value)} placeholder="Target weight (lb)" type="number" style={inputStyle}/>
+          </div>
+
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>GOAL</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {[['lose_fat','LOSE FAT','#ff9f47'],['gain_muscle','BUILD','#47c8ff'],['recomp','RECOMP','#e8ff47']].map(([k,l,c]) => (
+              <button key={k} onClick={() => set('goal_type', k)} style={optBtn(form.goal_type===k, c)}>{l}</button>
+            ))}
+          </div>
+
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>PACE</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {[['conservative','STEADY','#4aff7a'],['standard','BALANCED','#e8ff47'],['aggressive','AGGRESSIVE','#ff6b6b']].map(([k,l,c]) => (
+              <button key={k} onClick={() => set('pace', k)} style={optBtn(form.pace===k, c)}>{l}</button>
+            ))}
+          </div>
+
+          <button onClick={previewMacros} style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #333', borderRadius: 8, color: '#888', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer', marginBottom: recalcPreview ? 8 : 14, letterSpacing: 1 }}>↻ RECALCULATE MACROS</button>
+
+          {recalcPreview && (
+            <div style={{ background: '#080808', border: '1px solid #1a3a1a', borderRadius: 10, padding: '12px', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a3a2a', letterSpacing: 1, marginBottom: 8 }}>NEW TARGETS PREVIEW</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                {[['CAL',recalcPreview.calories,'#e8ff47'],['PRO',recalcPreview.protein+'g','#47c8ff'],['CARB',recalcPreview.carbs+'g','#ff9f47'],['FAT',recalcPreview.fat+'g','#c447ff']].map(([l,v,c])=>(
+                  <div key={String(l)} style={{ textAlign: 'center', padding: '6px 0' }}>
+                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: String(c), lineHeight: 1 }}>{v}</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', marginTop: 2 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { setSection('overview'); setRecalcPreview(null) }} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 8, color: '#333', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer' }}>CANCEL</button>
+            <button onClick={saveProfile} disabled={saving} style={{ flex: 2, padding: '12px', background: saving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 8, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 14, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'SAVING...' : 'SAVE'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+const STEP_LABELS = ['About You', 'Your Goal', 'Pace', 'Your Plan']
+
+function calculateMacros(profile: any) {
+  const { age, heightIn, weightLb, goalType, pace } = profile
+  // BMR via Mifflin-St Jeor
+  const heightCm = heightIn * 2.54
+  const weightKg = weightLb * 0.453592
+  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5 // male
+  // Activity multiplier (training 5-7x/week = very active)
+  const tdee = Math.round(bmr * 1.725)
+
+  // Calorie adjustment by goal + pace
+  const paceAdj: Record<string,number> = { aggressive: -600, standard: -400, conservative: -200 }
+  const gainAdj: Record<string,number> = { aggressive: 400, standard: 250, conservative: 150 }
+
+  let calories = tdee
+  if (goalType === 'lose_fat') calories = tdee + (paceAdj[pace] || -400)
+  else if (goalType === 'gain_muscle') calories = tdee + (gainAdj[pace] || 250)
+  else if (goalType === 'recomp') calories = tdee + (paceAdj[pace] || -300) / 2
+
+  calories = Math.max(1400, Math.round(calories / 50) * 50)
+
+  // Protein: 1g per lb bodyweight minimum, higher for recomp
+  const protein = goalType === 'recomp' ? Math.round(weightLb * 1.1) : Math.round(weightLb * 1.0)
+  // Fat: 25% of calories
+  const fat = Math.round((calories * 0.25) / 9)
+  // Carbs: remainder
+  const carbs = Math.round((calories - protein * 4 - fat * 9) / 4)
+
+  return { calories, protein, carbs: Math.max(50, carbs), fat, tdee }
+}
+
+function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: (profile: any) => void }) {
+  const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [profile, setProfile] = useState({
+    name: '', age: '', weightLb: '', heightFt: '', heightIn: '',
+    goalType: '', pace: '', targetWeightLb: ''
+  })
+
+  const set = (k: string, v: string) => setProfile(p => ({ ...p, [k]: v }))
+
+  const heightInches = parseInt(profile.heightFt||'0') * 12 + parseInt(profile.heightIn||'0')
+  const macros = step === 3 && profile.age && profile.weightLb && heightInches && profile.goalType && profile.pace
+    ? calculateMacros({ age: +profile.age, heightIn: heightInches, weightLb: +profile.weightLb, goalType: profile.goalType, pace: profile.pace })
+    : null
+
+  const canNext = [
+    profile.name && profile.age && profile.weightLb && profile.heightFt,
+    !!profile.goalType,
+    !!profile.pace,
+    !!macros
+  ][step]
+
+  const save = async () => {
+    if (!macros) return
+    setSaving(true)
+    await supabase.from('profiles').upsert({
+      id: userId,
+      full_name: profile.name,
+      age: +profile.age,
+      weight_lb: +profile.weightLb,
+      height_in: heightInches,
+      goal_type: profile.goalType,
+      pace: profile.pace,
+      target_weight_lb: +profile.targetWeightLb || null,
+      macro_calories: macros.calories,
+      macro_protein: macros.protein,
+      macro_carbs: macros.carbs,
+      macro_fat: macros.fat,
+      tdee: macros.tdee,
+    })
+    setSaving(false)
+    onComplete({ ...profile, ...macros, heightInches })
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: '#0a0a0a', border: '1px solid #222', borderRadius: 8,
+    padding: '12px 14px', color: '#ddd', fontFamily: "'DM Mono',monospace",
+    fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box'
+  }
+  const optionStyle = (active: boolean, color: string): React.CSSProperties => ({
+    flex: 1, padding: '14px 10px', background: active ? color + '18' : '#0c0c0c',
+    border: `1px solid ${active ? color : '#1e1e1e'}`, borderRadius: 10,
+    color: active ? color : '#444', cursor: 'pointer', textAlign: 'center',
+    fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 0.5, lineHeight: 1.4,
+    transition: 'all 0.15s'
+  })
+
+  const goalOptions = [
+    { key: 'lose_fat', label: 'LOSE FAT', sub: 'Reduce body fat\nwhile keeping muscle', color: '#ff9f47' },
+    { key: 'gain_muscle', label: 'BUILD MUSCLE', sub: 'Maximize muscle\ngrowth and strength', color: '#47c8ff' },
+    { key: 'recomp', label: 'RECOMP', sub: 'Lose fat and build\nmuscle simultaneously', color: '#e8ff47' },
+  ]
+  const paceOptions = [
+    { key: 'conservative', label: 'STEADY', sub: 'Slower, sustainable\nminimal sacrifice', color: '#4aff7a' },
+    { key: 'standard', label: 'BALANCED', sub: 'Proven results\nrecommended', color: '#e8ff47' },
+    { key: 'aggressive', label: 'AGGRESSIVE', sub: 'Fast results\nhigh discipline', color: '#ff6b6b' },
+  ]
+
+  return (
+    <div style={{ background: '#080808', minHeight: '100vh', color: '#eee', fontFamily: "'DM Sans',sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=DM+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 36, letterSpacing: 4, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RECOMP</div>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', letterSpacing: 2, marginTop: 2 }}>BUILD YOUR PLAN</div>
+        </div>
+
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 28 }}>
+          {STEP_LABELS.map((l, i) => (
+            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= step ? '#e8ff47' : '#1a1a1a', transition: 'background 0.3s' }}/>
+          ))}
+        </div>
+
+        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 2, marginBottom: 6 }}>STEP {step + 1} OF 4</div>
+        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, letterSpacing: 2, color: '#bbb', marginBottom: 20 }}>{STEP_LABELS[step].toUpperCase()}</div>
+
+        {/* Step 0 — About You */}
+        {step === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input value={profile.name} onChange={e => set('name', e.target.value)} placeholder="First name" style={inputStyle}/>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input value={profile.age} onChange={e => set('age', e.target.value)} placeholder="Age" type="number" style={inputStyle}/>
+              <input value={profile.weightLb} onChange={e => set('weightLb', e.target.value)} placeholder="Weight (lb)" type="number" style={inputStyle}/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input value={profile.heightFt} onChange={e => set('heightFt', e.target.value)} placeholder="Height ft" type="number" style={inputStyle}/>
+              <input value={profile.heightIn} onChange={e => set('heightIn', e.target.value)} placeholder="Height in" type="number" style={inputStyle}/>
+            </div>
+            <input value={profile.targetWeightLb} onChange={e => set('targetWeightLb', e.target.value)} placeholder="Target weight (lb) — optional" type="number" style={inputStyle}/>
+          </div>
+        )}
+
+        {/* Step 1 — Goal */}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {goalOptions.map(g => (
+              <button key={g.key} onClick={() => set('goalType', g.key)} style={{ ...optionStyle(profile.goalType === g.key, g.color), display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '16px 18px' }}>
+                <div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{g.label}</div>
+                  <div style={{ fontSize: 10, color: profile.goalType === g.key ? g.color + 'cc' : '#333', marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{g.sub}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 2 — Pace */}
+        {step === 2 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {paceOptions.map(p => (
+              <button key={p.key} onClick={() => set('pace', p.key)} style={{ ...optionStyle(profile.pace === p.key, p.color), display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '16px 18px' }}>
+                <div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{p.label}</div>
+                  <div style={{ fontSize: 10, color: profile.pace === p.key ? p.color + 'cc' : '#333', marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{p.sub}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 3 — Plan reveal */}
+        {step === 3 && macros && (
+          <div>
+            <div style={{ background: '#0c0c0c', border: '1px solid #1e1e1e', borderRadius: 14, padding: '20px', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 14 }}>YOUR DAILY TARGETS</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+                {[
+                  ['CALORIES', String(macros.calories), '#e8ff47'],
+                  ['PROTEIN', `${macros.protein}g`, '#47c8ff'],
+                  ['CARBS', `${macros.carbs}g`, '#ff9f47'],
+                  ['FAT', `${macros.fat}g`, '#c447ff'],
+                ].map(([l, v, c]) => (
+                  <div key={l} style={{ background: '#080808', border: `1px solid ${c}22`, borderRadius: 10, padding: '14px', textAlign: 'center' }}>
+                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, color: c, lineHeight: 1 }}>{v}</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginTop: 4 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 14, padding: '10px 12px', background: '#080808', border: '1px solid #141414', borderRadius: 8 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>TDEE (maintenance)</span>
+                  <span style={{ color: '#555' }}>{macros.tdee} cal</span>
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+                  <span>DAILY {macros.calories < macros.tdee ? 'DEFICIT' : 'SURPLUS'}</span>
+                  <span style={{ color: macros.calories < macros.tdee ? '#4aff7a' : '#ff9f47' }}>{Math.abs(macros.calories - macros.tdee)} cal</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', lineHeight: 1.7, marginBottom: 14 }}>
+              These targets are calculated from your TDEE and adjusted for your {profile.goalType === 'recomp' ? 'body recomposition' : profile.goalType === 'lose_fat' ? 'fat loss' : 'muscle building'} goal at a {profile.pace} pace. You can adjust anytime in settings.
+            </div>
+          </div>
+        )}
+
+        {/* Nav buttons */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+          {step > 0 && (
+            <button onClick={() => setStep(s => s - 1)} style={{ flex: 1, padding: 14, background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 10, color: '#444', fontFamily: "'DM Mono',monospace", fontSize: 12, cursor: 'pointer' }}>BACK</button>
+          )}
+          {step < 3 ? (
+            <button onClick={() => setStep(s => s + 1)} disabled={!canNext} style={{ flex: 2, padding: 14, background: canNext ? '#e8ff47' : '#141414', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: canNext ? 'pointer' : 'default', transition: 'background 0.2s' }}>NEXT</button>
+          ) : (
+            <button onClick={save} disabled={saving} style={{ flex: 2, padding: 14, background: saving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>
+              {saving ? 'SAVING...' : "LET'S GO"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
   const [tab, setTab] = useState('food')
   const [activeDate, setActiveDate] = useState(todayKey())
   const [userId, setUserId] = useState<string|null>(null)
   const [foods, setFoods] = useState<FoodItem[]>([])
   const [sessions, setSessions] = useState<WorkoutSession[]>([])
   const [loading, setLoading] = useState(true)
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  const [macroGoal, setMacroGoal] = useState(MACRO_GOAL)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { window.location.href = '/auth'; return }
       setUserId(data.user.id)
+      const { data: profile } = await supabase.from('profiles').select('macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', data.user.id).maybeSingle()
+      if (!profile?.macro_calories) {
+        setNeedsOnboarding(true)
+        setLoading(false)
+      } else {
+        setMacroGoal({ calories: profile.macro_calories, protein: profile.macro_protein, carbs: profile.macro_carbs, fat: profile.macro_fat })
+      }
     })
   }, [])
+
+  const handleOnboardingComplete = (profile: any) => {
+    setMacroGoal({ calories: profile.calories, protein: profile.protein, carbs: profile.carbs, fat: profile.fat })
+    setNeedsOnboarding(false)
+  }
 
   const fetchData = useCallback(async () => {
     if (!userId) return
@@ -822,24 +1390,27 @@ export default function HomePage() {
     setLoading(false)
   }, [userId])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { if (!needsOnboarding) fetchData() }, [fetchData, needsOnboarding])
 
-  if (loading || !userId) return (
+  if (loading) return (
     <div style={{background:'#080808',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{width:24,height:24,border:'2px solid #1e1e1e',borderTop:'2px solid #e8ff47',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
+  if (needsOnboarding && userId) return <OnboardingWizard userId={userId} onComplete={handleOnboardingComplete}/>
+
+  if (!userId) return null
+
   const dayFoods = foods.filter(f=>f.logged_date===activeDate)
   const totalCals = dayFoods.reduce((s,f)=>s+f.calories,0)
   const totalPro = dayFoods.reduce((s,f)=>s+(+f.protein||0),0)
   const daySession = sessions.find(s=>s.logged_date===activeDate)||null
   const calsBurned = daySession?.cals_burned||0
-  const calsRemaining = MACRO_GOAL.calories - totalCals + calsBurned
+  const calsRemaining = macroGoal.calories - totalCals + calsBurned
   const isToday = activeDate===todayKey()
   const isFirstDay = activeDate===WEEK[0]
-  // Daily nutrition score = avg of all rated food items
   const ratedFoods = dayFoods.filter(f=>f.rating)
   const dailyNutritionScore = ratedFoods.length > 0
     ? Math.round((ratedFoods.reduce((s,f)=>s+(f.rating||0),0)/ratedFoods.length)*10)/10
@@ -901,7 +1472,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {tab!=='trends'&&(
+        {tab!=='trends'&&tab!=='profile'&&(
           <>
             <div style={{display:'flex',gap:3,marginBottom:8}}>
               {WEEK.map((date,i)=>{
@@ -933,19 +1504,20 @@ export default function HomePage() {
         )}
 
         <div style={{display:'flex'}}>
-          {[['food','NUTRITION','#e8ff47'],['workout','TRAINING','#47c8ff'],['trends','TRENDS','#4aff7a']].map(([key,label,color])=>(
-            <button key={key} onClick={()=>setTab(key)} style={{flex:1,background:'none',border:'none',borderBottom:tab===key?`2px solid ${color}`:'2px solid transparent',color:tab===key?color:'#2a2a2a',fontFamily:"'Bebas Neue',sans-serif",fontSize:11,letterSpacing:1.5,padding:'7px 0 9px',cursor:'pointer',transition:'all 0.2s'}}>{label}</button>
+          {[['food','NUTRITION','#e8ff47'],['workout','TRAINING','#47c8ff'],['trends','TRENDS','#4aff7a'],['profile','PROFILE','#c447ff']].map(([key,label,color])=>(
+            <button key={key} onClick={()=>setTab(key)} style={{flex:1,background:'none',border:'none',borderBottom:tab===key?`2px solid ${color}`:'2px solid transparent',color:tab===key?color:'#2a2a2a',fontFamily:"'Bebas Neue',sans-serif",fontSize:10,letterSpacing:1.5,padding:'7px 0 9px',cursor:'pointer',transition:'all 0.2s'}}>{label}</button>
           ))}
         </div>
       </div>
 
       <div style={{paddingTop:12,paddingBottom:90}}>
-        {tab==='food'&&<FoodTab foods={foods} activeDate={activeDate} userId={userId} onRefresh={fetchData}/>}
+        {tab==='food'&&<FoodTab foods={foods} activeDate={activeDate} userId={userId} onRefresh={fetchData} macroGoal={macroGoal}/>}
         {tab==='workout'&&<WorkoutTab session={daySession} activeDate={activeDate} userId={userId} onRefresh={fetchData}/>}
         {tab==='trends'&&<TrendsTab foods={foods} sessions={sessions}/>}
+        {tab==='profile'&&<ProfileTab userId={userId} macroGoal={macroGoal} onMacrosUpdated={(m)=>{ setMacroGoal(m) }}/>}
       </div>
 
-      {tab!=='trends'&&(
+      {tab!=='trends'&&tab!=='profile'&&(
         <SmartInputBar tab={tab} activeDate={activeDate} userId={userId} onRefresh={fetchData}/>
       )}
     </div>
