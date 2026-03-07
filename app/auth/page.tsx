@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function AuthPage() {
@@ -8,108 +8,151 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
+  const [checkingSession, setCheckingSession] = useState(true)
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) window.location.href = '/'
+      else setCheckingSession(false)
+    })
+    // Listen for auth state changes (handles OAuth callback)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        window.location.href = '/'
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const handleEmail = async () => {
     if (!email || !password) return
-    setLoading(true); setMessage(null)
+    setLoading(true)
+    setMessage(null)
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({ email, password, options: { data: { name } } })
+      const { error } = await supabase.auth.signUp({
+        email, password,
+        options: { data: { full_name: name } }
+      })
       if (error) setMessage({ text: error.message, ok: false })
-      else setMessage({ text: 'Check your email to confirm your account!', ok: true })
+      else setMessage({ text: 'Account created! Signing you in...', ok: true })
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setMessage({ text: error.message, ok: false })
+      if (error) {
+        setMessage({ text: error.message === 'Invalid login credentials' ? 'Incorrect email or password.' : error.message, ok: false })
+      }
+      // success handled by onAuthStateChange → redirect
     }
     setLoading(false)
   }
 
   const handleGoogle = async () => {
-    setOauthLoading(true); setMessage(null)
+    setGoogleLoading(true)
+    setMessage(null)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` }
     })
-    if (error) { setMessage({ text: error.message, ok: false }); setOauthLoading(false) }
+    if (error) { setMessage({ text: error.message, ok: false }); setGoogleLoading(false) }
   }
 
-  const handleForgot = async () => {
-    if (!email) { setMessage({ text: 'Enter your email first', ok: false }); return }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth/reset` })
+  const handleForgotPassword = async () => {
+    if (!email) { setMessage({ text: 'Enter your email above first.', ok: false }); return }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`
+    })
     if (error) setMessage({ text: error.message, ok: false })
-    else setMessage({ text: 'Password reset email sent!', ok: true })
+    else setMessage({ text: 'Password reset link sent — check your email.', ok: true })
   }
 
-  const inp: React.CSSProperties = { width: '100%', background: '#0a0a0a', border: '1px solid #222', borderRadius: 8, padding: '12px 14px', color: '#ccc', fontFamily: "'DM Mono', monospace", fontSize: 13, outline: 'none', boxSizing: 'border-box' }
+  const inp: React.CSSProperties = {
+    width: '100%', background: '#0a0a0a', border: '1px solid #222',
+    borderRadius: 8, padding: '13px 14px', color: '#ccc',
+    fontFamily: "'DM Mono', monospace", fontSize: 13, outline: 'none',
+    boxSizing: 'border-box', transition: 'border-color 0.2s'
+  }
+
+  if (checkingSession) return (
+    <div style={{ background: '#080808', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 20, height: 20, border: '2px solid #1e1e1e', borderTop: '2px solid #e8ff47', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  )
 
   return (
-    <div style={{ background: '#080808', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 360 }}>
+    <div style={{ background: '#080808', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+      <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=DM+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} input:focus{border-color:#333!important}`}</style>
+
+      <div style={{ width: '100%', maxWidth: 380 }}>
 
         {/* Logo */}
-        <div style={{ marginBottom: 36, textAlign: 'center' }}>
-          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 52, letterSpacing: 4, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1 }}>RECOMP</div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: '#2a2a2a', letterSpacing: 2, marginTop: 6 }}>AI-POWERED FITNESS TRACKER</div>
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 42, letterSpacing: 5, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1 }}>RECOMP</div>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', letterSpacing: 2.5, marginTop: 4 }}>TRACK · TRAIN · TRANSFORM</div>
         </div>
 
-        {/* Google Sign In */}
-        <button onClick={handleGoogle} disabled={oauthLoading || loading}
-          style={{ width: '100%', padding: '13px 16px', background: '#131313', border: '1px solid #2a2a2a', borderRadius: 10, cursor: oauthLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20, opacity: loading ? 0.4 : 1, transition: 'all 0.2s' }}>
-          {oauthLoading
-            ? <div style={{ width: 16, height: 16, border: '2px solid #333', borderTop: '2px solid #4aff7a', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-            : <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.48h4.844c-.209 1.125-.843 2.078-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.614z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-          }
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, color: '#ccc' }}>
-            {oauthLoading ? 'Signing in...' : 'Sign in with Google'}
-          </span>
-        </button>
-
-        {/* Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
-          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: '#2a2a2a', letterSpacing: 1 }}>OR</span>
-          <div style={{ flex: 1, height: 1, background: '#1a1a1a' }} />
-        </div>
-
-        {/* Email/password tabs */}
-        <div style={{ display: 'flex', marginBottom: 16, background: '#0c0c0c', borderRadius: 10, padding: 3 }}>
+        {/* Mode toggle */}
+        <div style={{ display: 'flex', background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 10, padding: 4, marginBottom: 24 }}>
           {(['login', 'signup'] as const).map(m => (
-            <button key={m} onClick={() => setMode(m)}
-              style={{ flex: 1, padding: '9px 0', background: mode === m ? '#e8ff47' : 'transparent', border: 'none', borderRadius: 8, color: mode === m ? '#080808' : '#333', fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: 2, cursor: 'pointer', transition: 'all 0.2s' }}>
+            <button key={m} onClick={() => { setMode(m); setMessage(null) }} style={{ flex: 1, padding: '10px', background: mode === m ? '#1a1a1a' : 'transparent', border: 'none', borderRadius: 7, color: mode === m ? '#e8ff47' : '#2a2a2a', fontFamily: "'Bebas Neue',sans-serif", fontSize: 13, letterSpacing: 2, cursor: 'pointer', transition: 'all 0.2s' }}>
               {m === 'login' ? 'LOG IN' : 'SIGN UP'}
             </button>
           ))}
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {mode === 'signup' && <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" style={inp} />}
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" style={inp} />
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" style={inp} onKeyDown={e => e.key === 'Enter' && handleEmail()} />
+        {/* Form */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+          {mode === 'signup' && (
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" style={inp}/>
+          )}
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" autoComplete="email" style={inp}/>
+          <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onKeyDown={e => e.key === 'Enter' && handleEmail()} style={inp}/>
         </div>
 
+        {/* Forgot password */}
         {mode === 'login' && (
-          <button onClick={handleForgot} style={{ background: 'none', border: 'none', color: '#2a2a2a', fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: 'pointer', marginTop: 8, padding: 0 }}>
-            Forgot password?
-          </button>
+          <div style={{ textAlign: 'right', marginBottom: 16 }}>
+            <button onClick={handleForgotPassword} style={{ background: 'none', border: 'none', color: '#333', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer', letterSpacing: 0.5 }}>Forgot password?</button>
+          </div>
         )}
 
+        {/* Message */}
         {message && (
-          <div style={{ marginTop: 12, padding: '10px 14px', background: message.ok ? '#0a1a0a' : '#1a0808', border: `1px solid ${message.ok ? '#1e3a1e' : '#4a1a1a'}`, borderRadius: 8, fontSize: 11, color: message.ok ? '#6aff8a' : '#ff8a6a', fontFamily: "'DM Mono', monospace" }}>
+          <div style={{ marginBottom: 14, padding: '10px 12px', background: message.ok ? '#0a1a0a' : '#1a0a0a', border: `1px solid ${message.ok ? '#1a3a1a' : '#3a1a1a'}`, borderRadius: 8, fontFamily: "'DM Mono',monospace", fontSize: 10, color: message.ok ? '#4aff7a' : '#ff6b6b', lineHeight: 1.5 }}>
             {message.text}
           </div>
         )}
 
-        <button onClick={handleEmail} disabled={loading || !email || !password}
-          style={{ width: '100%', marginTop: 14, padding: 14, background: !email || !password ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: 2, cursor: !email || !password ? 'default' : 'pointer', transition: 'background 0.2s' }}>
-          {loading ? '...' : mode === 'login' ? 'LOG IN' : 'CREATE ACCOUNT'}
+        {/* Primary CTA */}
+        <button onClick={handleEmail} disabled={loading || !email || !password} style={{ width: '100%', padding: '14px', background: loading || !email || !password ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2.5, cursor: loading || !email || !password ? 'default' : 'pointer', marginBottom: 12, transition: 'background 0.2s' }}>
+          {loading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span style={{ width: 12, height: 12, border: '2px solid #333', borderTop: '2px solid #080808', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }}/> {mode === 'login' ? 'SIGNING IN...' : 'CREATING ACCOUNT...'}</span> : mode === 'login' ? 'LOG IN' : 'CREATE ACCOUNT'}
         </button>
 
-        <div style={{ marginTop: 24, textAlign: 'center', fontFamily: "'DM Mono', monospace", fontSize: 9, color: '#181818', lineHeight: 1.9 }}>
-          Track food and workouts with AI<br />Natural language · Voice · Photo
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ flex: 1, height: 1, background: '#141414' }}/>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#1e1e1e' }}>OR</div>
+          <div style={{ flex: 1, height: 1, background: '#141414' }}/>
+        </div>
+
+        {/* Google */}
+        <button onClick={handleGoogle} disabled={googleLoading} style={{ width: '100%', padding: '13px', background: '#0c0c0c', border: '1px solid #1e1e1e', borderRadius: 10, color: '#888', fontFamily: "'DM Mono',monospace", fontSize: 12, cursor: googleLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'border-color 0.2s' }}>
+          {googleLoading ? (
+            <span style={{ width: 14, height: 14, border: '2px solid #333', borderTop: '2px solid #888', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }}/>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          )}
+          {googleLoading ? 'Redirecting...' : 'Continue with Google'}
+        </button>
+
+        <div style={{ textAlign: 'center', marginTop: 28, fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#1a1a1a', letterSpacing: 1 }}>
+          YOUR DATA IS PRIVATE · ENCRYPTED · YOURS
         </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
+
