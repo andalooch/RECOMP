@@ -866,7 +866,6 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
     await supabase.from('profiles').update({ weight_lb: +checkInWeight }).eq('id', userId)
     setProfile((p: any) => ({ ...p, weight_lb: +checkInWeight }))
     await loadData()
-    setCheckInWeight('')
     setCheckInNotes('')
     setCheckInSaving(false)
   }
@@ -905,19 +904,12 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
   const todayStr = todayKey()
   const todayCheckedIn = weightLogs.some((w:any) => w.logged_date === todayStr)
 
-  // Pre-fill check-in with today's value if already logged
+  // Pre-fill check-in weight with today's entry if already logged
   useEffect(() => {
-    if (section === 'checkin') {
-      const todayLog = weightLogs.find((w:any) => w.logged_date === todayStr)
-      if (todayLog) {
-        setCheckInWeight(String(+todayLog.weight_lb))
-        setCheckInNotes(todayLog.notes || '')
-      } else {
-        setCheckInWeight('')
-        setCheckInNotes('')
-      }
-    }
-  }, [section, weightLogs])
+    const todayLog = weightLogs.find((w:any) => w.logged_date === todayStr)
+    if (todayLog) setCheckInWeight(String(parseFloat(todayLog.weight_lb)))
+    else setCheckInWeight('')
+  }, [weightLogs])
 
   // Mini sparkline — last 14 days
   const spark = sortedLogs.slice(-14)
@@ -939,7 +931,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
 
       {/* Section toggle */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {([['overview','OVERVIEW'],['checkin','CHECK-IN'],['edit','EDIT GOALS']] as const).map(([k,l]) => (
+        {([['overview','OVERVIEW'],['edit','EDIT GOALS']] as const).map(([k,l]) => (
           <button key={k} onClick={() => setSection(k)} style={{ flex:1, padding: '8px 4px', background: section===k ? '#e8ff4710' : 'transparent', border: `1px solid ${section===k ? '#e8ff4744' : '#1a1a1a'}`, borderRadius: 7, color: section===k ? '#e8ff47' : '#2a2a2a', fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 0.5, cursor: 'pointer' }}>{l}</button>
         ))}
       </div>
@@ -993,156 +985,81 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             </div>
           </div>
 
-          {/* Weight trend */}
+          {/* Weight log card — inline entry + full history */}
           <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>WEIGHT</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>WEIGHT LOG</div>
               {totalChange !== null && (
                 <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: totalChange < 0 ? '#4aff7a' : totalChange > 0 ? '#ff6b6b' : '#555', letterSpacing: 1 }}>
                   {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)} lb total
                 </div>
               )}
             </div>
+
+            {/* Sparkline */}
             {sortedLogs.length > 1 && (
-              <svg width="100%" height={48} viewBox={`0 0 ${sparkW} ${sparkH}`} preserveAspectRatio="none" style={{ display: 'block', marginBottom: 6 }}>
+              <svg width="100%" height={40} viewBox={`0 0 ${sparkW} ${sparkH}`} preserveAspectRatio="none" style={{ display: 'block', marginBottom: 10 }}>
                 {targetWeight && <line x1={0} y1={toY(targetWeight)} x2={sparkW} y2={toY(targetWeight)} stroke="#e8ff4722" strokeWidth={1} strokeDasharray="4,4"/>}
                 <path d={sparkPath} fill="none" stroke="#47c8ff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
                 {spark.map((s:any, i:number) => <circle key={i} cx={toX(i)} cy={toY(s.weight_lb)} r={2} fill="#47c8ff"/>)}
               </svg>
             )}
-            {sortedLogs.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '14px 0' }}>
-                <button onClick={() => setSection('checkin')} style={{ background: '#e8ff4710', border: '1px solid #e8ff4733', borderRadius: 7, color: '#e8ff47', fontFamily: "'DM Mono',monospace", fontSize: 9, padding: '7px 16px', cursor: 'pointer' }}>LOG FIRST CHECK-IN</button>
+
+            {/* Progress bar */}
+            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ height: 3, background: '#141414', borderRadius: 2, overflow: 'hidden', marginBottom: 3 }}>
+                  <div style={{ height: '100%', borderRadius: 2, background: '#4aff7a', width: `${Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}%` }}/>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e' }}>
+                  <span>{firstWeight} lb start</span>
+                  <span>{Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}% to {targetWeight} lb</span>
+                </div>
               </div>
             )}
+
+            {/* Quick log row */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: weightLogs.length > 0 ? 14 : 0, paddingBottom: weightLogs.length > 0 ? 14 : 0, borderBottom: weightLogs.length > 0 ? '1px solid #111' : 'none' }}>
+              <input
+                value={checkInWeight}
+                onChange={e => setCheckInWeight(e.target.value)}
+                placeholder={todayCheckedIn ? String(latestWeight) : latestWeight ? `last: ${latestWeight}` : 'weight (lb)'}
+                type="number" step="0.1"
+                style={{ ...inputStyle, flex: 1, padding: '9px 12px' }}
+              />
+              <button onClick={saveCheckIn} disabled={!checkInWeight || checkInSaving}
+                style={{ padding: '9px 16px', background: !checkInWeight || checkInSaving ? '#141414' : todayCheckedIn ? '#2a3a2a' : '#e8ff47', border: 'none', borderRadius: 7, color: !checkInWeight || checkInSaving ? '#333' : todayCheckedIn ? '#4aff7a' : '#080808', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 1, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer', whiteSpace: 'nowrap' as const }}>
+                {checkInSaving ? '...' : todayCheckedIn ? '✓ UPDATE' : 'LOG'}
+              </button>
+            </div>
+
+            {/* History rows */}
+            {weightLogs.map((w: any, i: number) => {
+              const prev = weightLogs[i + 1]
+              const wt = parseFloat(w.weight_lb)
+              const delta = prev ? parseFloat((wt - parseFloat(prev.weight_lb)).toFixed(1)) : null
+              const isStart = i === weightLogs.length - 1
+              const isToday = w.logged_date === todayStr
+              return (
+                <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #0a0a0a' : 'none', gap: 8 }}>
+                  <div style={{ flex: 1, fontFamily: "'DM Mono',monospace", fontSize: 9, color: isToday ? '#666' : '#2a2a2a' }}>
+                    {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    {isToday && <span style={{ color: '#e8ff4788', marginLeft: 4 }}>·now</span>}
+                    {isStart && !isToday && <span style={{ color: '#333', marginLeft: 4 }}>·start</span>}
+                  </div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 15, color: isToday ? '#aaa' : '#444' }}>
+                    {wt}<span style={{ fontSize: 8, color: '#252525' }}> lb</span>
+                  </div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 38, textAlign: 'right' as const, color: delta === null ? '#1a1a1a' : delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333' }}>
+                    {delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
+                  </div>
+                  <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#1e1e1e', cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1 }}>×</button>
+                </div>
+              )
+            })}
           </div>
         </>
-      )}
-
-      {/* ── CHECK-IN ── */}
-      {section === 'checkin' && (
-        <div style={{ marginBottom: 12 }}>
-          {/* Today's entry — shows existing value pre-filled if logged */}
-          <div style={{ background: '#0c0c0c', border: `1px solid ${todayCheckedIn ? '#2a3a2a' : '#1a1a1a'}`, borderRadius: 14, padding: '20px', marginBottom: 10 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>TODAY'S CHECK-IN</div>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', marginTop: 3 }}>
-                  {todayCheckedIn ? 'Tap weight to update' : 'Enter your weight below'}
-                </div>
-              </div>
-              {todayCheckedIn && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#4aff7a', letterSpacing: 1 }}>✓ LOGGED</div>}
-            </div>
-
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>WEIGHT (LB)</div>
-            <input
-              value={checkInWeight}
-              onChange={e => setCheckInWeight(e.target.value)}
-              placeholder={todayCheckedIn
-                ? String(+weightLogs.find((w:any) => w.logged_date === todayStr)?.weight_lb || '')
-                : latestWeight ? String(latestWeight) : 'e.g. 207.4'}
-              type="number" step="0.1"
-              style={{ ...inputStyle, fontSize: 22, padding: '14px', marginBottom: 10, color: '#ccc', textAlign: 'center' as const }}
-            />
-
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>NOTES (OPTIONAL)</div>
-            <input value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)}
-              placeholder={todayCheckedIn
-                ? weightLogs.find((w:any) => w.logged_date === todayStr)?.notes || 'Add a note...'
-                : 'e.g. feeling lean, held water...'}
-              style={{ ...inputStyle, marginBottom: 14 }}/>
-
-            {/* Live change preview */}
-            {checkInWeight && (latestWeight || profile?.weight_lb) && (
-              <div style={{ marginBottom: 14, padding: '10px 12px', background: '#080808', border: '1px solid #141414', borderRadius: 8 }}>
-                {(() => {
-                  const ref = todayCheckedIn
-                    ? weightLogs.find((w:any) => w.logged_date !== todayStr && w.weight_lb) ? +weightLogs.find((w:any) => w.logged_date !== todayStr)?.weight_lb : latestWeight
-                    : latestWeight ?? (profile?.weight_lb ? +profile.weight_lb : null)
-                  if (!ref) return null
-                  const delta = +checkInWeight - ref
-                  return (
-                    <>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
-                        <span>CHANGE FROM LAST</span>
-                        <span style={{ color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#555' }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)} lb</span>
-                      </div>
-                      {targetWeight && (
-                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
-                          <span>TO GOAL</span>
-                          <span style={{ color: '#555' }}>{Math.abs(+checkInWeight - targetWeight).toFixed(1)} lb</span>
-                        </div>
-                      )}
-                    </>
-                  )
-                })()}
-              </div>
-            )}
-
-            <button onClick={saveCheckIn} disabled={!checkInWeight || checkInSaving} style={{ width: '100%', padding: '14px', background: !checkInWeight || checkInSaving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer' }}>
-              {checkInSaving ? 'SAVING...' : todayCheckedIn ? 'UPDATE TODAY' : 'LOG CHECK-IN'}
-            </button>
-          </div>
-
-          {/* Full running log */}
-          {weightLogs.length > 0 && (
-            <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>PROGRESS LOG</div>
-                {totalChange !== null && (
-                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: totalChange < 0 ? '#4aff7a' : totalChange > 0 ? '#ff6b6b' : '#555' }}>
-                    {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)} lb total
-                  </div>
-                )}
-              </div>
-
-              {/* Progress bar */}
-              {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (
-                <div style={{ marginBottom: 14 }}>
-                  <div style={{ height: 3, background: '#141414', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
-                    <div style={{ height: '100%', borderRadius: 2, background: '#4aff7a', width: `${Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}%` }}/>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e' }}>
-                    <span>{firstWeight} lb start</span>
-                    <span>{Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}% to {targetWeight} lb</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Rows */}
-              {weightLogs.map((w: any, i: number) => {
-                const prev = weightLogs[i + 1]  // weightLogs is newest-first, so [i+1] is older — correct for delta
-                const wt = parseFloat(w.weight_lb)
-                const delta = prev ? parseFloat((wt - parseFloat(prev.weight_lb)).toFixed(1)) : null
-                const isStart = i === weightLogs.length - 1
-                const isToday = w.logged_date === todayStr
-                return (
-                  <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #0f0f0f' : 'none', gap: 10 }}>
-                    {/* Date */}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: isToday ? '#888' : '#333' }}>
-                        {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        {isToday && <span style={{ color: '#e8ff47', marginLeft: 5 }}>·today</span>}
-                        {isStart && !isToday && <span style={{ color: '#444', marginLeft: 5 }}>·start</span>}
-                      </div>
-                      {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#222', marginTop: 1 }}>{w.notes}</div>}
-                    </div>
-                    {/* Weight */}
-                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: isToday ? '#bbb' : '#444', minWidth: 60, textAlign: 'right' as const }}>
-                      {wt}<span style={{ fontSize: 9, color: '#2a2a2a' }}> lb</span>
-                    </div>
-                    {/* Delta */}
-                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 40, textAlign: 'right' as const, color: delta === null ? '#1a1a1a' : delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333' }}>
-                      {delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
-                    </div>
-                    {/* Delete */}
-                    <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#1e1e1e', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1 }}>×</button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
       )}
 
       {/* ── EDIT GOALS ── */}
