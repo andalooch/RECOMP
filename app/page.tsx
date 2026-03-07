@@ -1014,29 +1014,11 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             )}
           </div>
 
-          {/* Recent check-ins */}
-          {weightLogs.length > 0 && (
-            <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px' }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 10 }}>RECENT CHECK-INS</div>
-              {weightLogs.slice(0, 7).map((w: any, i: number) => {
-                const prev = weightLogs[i + 1]
-                const delta = prev ? w.weight_lb - prev.weight_lb : null
-                return (
-                  <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < Math.min(weightLogs.length, 7) - 1 ? '1px solid #111' : 'none' }}>
-                    <div>
-                      <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#666' }}>{new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                      {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', marginTop: 2 }}>{w.notes}</div>}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, color: '#888', lineHeight: 1 }}>{w.weight_lb} <span style={{ fontSize: 10, color: '#333' }}>lb</span></div>
-                        {delta !== null && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333', marginTop: 1 }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)}</div>}
-                      </div>
-                      <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#2a2a2a', cursor: 'pointer', fontSize: 14, padding: '2px 4px', lineHeight: 1 }}>×</button>
-                    </div>
-                  </div>
-                )
-              })}
+          {/* No data CTA */}
+          {spark.length === 0 && (
+            <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '20px', textAlign: 'center' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#1e1e1e', marginBottom: 8 }}>NO WEIGHT DATA YET</div>
+              <button onClick={() => setSection('checkin')} style={{ background: '#e8ff4710', border: '1px solid #e8ff4733', borderRadius: 7, color: '#e8ff47', fontFamily: "'DM Mono',monospace", fontSize: 9, padding: '7px 16px', cursor: 'pointer' }}>LOG FIRST CHECK-IN</button>
             </div>
           )}
         </>
@@ -1107,32 +1089,77 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             </button>
           </div>
 
-          {/* Full history with delete */}
+          {/* Full running log */}
           {weightLogs.length > 0 && (
             <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px' }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 10 }}>HISTORY</div>
+              {/* Summary header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>PROGRESS LOG</div>
+                <div style={{ textAlign: 'right' }}>
+                  {totalChange !== null && (
+                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, color: totalChange < 0 ? '#4aff7a' : totalChange > 0 ? '#ff6b6b' : '#555', lineHeight: 1 }}>
+                      {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)} lb
+                    </div>
+                  )}
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', marginTop: 2 }}>
+                    {sortedLogs.length} entries · {sortedLogs[0] ? new Date(sortedLogs[0].logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''} → now
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress bar toward goal */}
+              {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', marginBottom: 4 }}>
+                    <span>START {firstWeight} lb</span>
+                    <span>GOAL {targetWeight} lb</span>
+                  </div>
+                  <div style={{ height: 4, background: '#141414', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%', borderRadius: 2, background: '#4aff7a',
+                      width: `${Math.min(100, Math.max(0, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100)).toFixed(1)}%`,
+                      transition: 'width 0.5s'
+                    }}/>
+                  </div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', marginTop: 3, textAlign: 'right' }}>
+                    {Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}% to goal
+                  </div>
+                </div>
+              )}
+
+              {/* All entries — newest first */}
               {weightLogs.map((w: any, i: number) => {
                 const prev = weightLogs[i + 1]
                 const delta = prev ? w.weight_lb - prev.weight_lb : null
+                const totalFromStart = firstWeight ? w.weight_lb - firstWeight : null
                 const isToday = w.logged_date === todayKey()
                 return (
-                  <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #111' : 'none' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#666' }}>{new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-                        {isToday && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#e8ff47', letterSpacing: 0.5 }}>TODAY</div>}
+                  <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #0f0f0f' : 'none' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: isToday ? '#ccc' : '#555' }}>
+                          {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                        </div>
+                        {isToday && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#e8ff47', letterSpacing: 0.5, background: '#e8ff4710', padding: '1px 5px', borderRadius: 3 }}>TODAY</div>}
+                        {i === weightLogs.length - 1 && !isToday && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#555', letterSpacing: 0.5 }}>START</div>}
                       </div>
-                      {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', marginTop: 2 }}>{w.notes}</div>}
+                      {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#252525' }}>{w.notes}</div>}
+                      {/* Running total from start */}
+                      {totalFromStart !== null && i < weightLogs.length - 1 && (
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: totalFromStart < 0 ? '#2a4a2a' : '#4a2a2a', marginTop: 2 }}>
+                          {totalFromStart > 0 ? '+' : ''}{totalFromStart.toFixed(1)} lb from start
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, color: '#888', lineHeight: 1 }}>{w.weight_lb} <span style={{ fontSize: 10, color: '#333' }}>lb</span></div>
+                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, color: isToday ? '#ccc' : '#444', lineHeight: 1 }}>{w.weight_lb}<span style={{ fontSize: 10, color: '#2a2a2a' }}> lb</span></div>
                         {delta !== null
-                          ? <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333', marginTop: 1 }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)} lb</div>
-                          : <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#1e1e1e', marginTop: 1 }}>first entry</div>
+                          ? <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333', marginTop: 1, textAlign: 'right' }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)}</div>
+                          : <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e', marginTop: 1 }}>baseline</div>
                         }
                       </div>
-                      <button onClick={() => deleteWeightLog(w.id)} style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 5, color: '#333', cursor: 'pointer', fontSize: 12, padding: '4px 8px', lineHeight: 1 }}>×</button>
+                      <button onClick={() => deleteWeightLog(w.id)} style={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: 5, color: '#2a2a2a', cursor: 'pointer', fontSize: 12, padding: '4px 7px', lineHeight: 1 }}>×</button>
                     </div>
                   </div>
                 )
