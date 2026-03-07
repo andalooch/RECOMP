@@ -19,65 +19,74 @@ export async function POST(request: Request) {
   } else {
     messages.push({
       role: 'user',
-      content: `Parse this workout log: "${text}". Return JSON only, no markdown.`
+      content: `Parse this workout log into sessions: "${text}". Return JSON only, no markdown.`
     })
   }
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 2000,
-    system: `You are a workout log parser. Parse workout descriptions into one or more distinct sessions.
+    system: `You are a workout log parser. Your job is to split workout logs into separate sessions and name each one correctly.
 
-CRITICAL: If the input contains multiple distinct workout types (e.g. a strength session AND a cardio activity), split them into SEPARATE sessions in the sessions array. Do NOT combine them into one session.
+STEP 1 - IDENTIFY DISTINCT ACTIVITIES:
+Scan the input for different activity types. These should ALWAYS be separate sessions:
+- Strength/weight training exercises (bench press, curls, rows, pulldowns, squats, etc.)
+- Running / jogging
+- Cycling / spinning
+- Walking
+- Swimming
+- Yoga / pilates
+- HIIT / cardio classes
+- Any other distinct sport or class
 
-Examples of what should be split:
-- "back and biceps workout + ran 3 miles" → 2 sessions: "Back & Biceps" and "Running"
-- "lifted chest then did 30 min cycling" → 2 sessions: "Chest" and "Cycling"
-- "yoga this morning, lifting tonight" → 2 sessions: "Yoga" and "Lifting"
+STEP 2 - NAME EACH STRENGTH SESSION BY MUSCLE GROUPS:
+Look at ALL the strength exercises and name the session based on what muscles they hit:
+- Back exercises (rows, pulldowns, pull-ups, deadlifts) + Bicep exercises (curls) → "Back & Biceps"
+- Chest exercises (bench press, flyes, push-ups) + Tricep exercises (pushdowns, extensions) → "Chest & Triceps"  
+- Shoulder exercises (press, lateral raises, face pulls) → "Shoulders"
+- Leg exercises (squats, lunges, leg press, RDL) → "Legs"
+- Mixed upper body → "Upper Body"
+- Full body mix → "Full Body"
+DO NOT name a strength session after a cardio activity that also appears in the log.
 
-Common input formats to handle:
-- "bench press 135x10 185x8 205x6" → 3 sets with different weights
-- "3x10 bench at 185" → 3 sets of 10 at 185
-- "cycling 45 min moderate" → cardio activity
-- "ran 3 miles 28 minutes" → running cardio
+STEP 3 - NAME EACH CARDIO SESSION:
+- Running/jogging → "Running"
+- Cycling/spinning → "Cycling"  
+- Walking → "Walking"
+- Swimming → "Swimming"
+- Yoga → "Yoga"
+- HIIT → "HIIT"
 
-Return ONLY valid JSON in this exact format, no markdown:
+Return ONLY valid JSON:
 {
   "sessions": [
     {
       "workoutName": "Back & Biceps",
       "calsBurned": 420,
       "exercises": [
-        {
-          "name": "Lat Pulldown",
-          "type": "strength",
-          "sets": [
-            {"weight": "120", "reps": "10"},
-            {"weight": "130", "reps": "8"}
-          ]
-        }
+        {"name": "Lat Pulldown", "type": "strength", "sets": [{"weight": "120", "reps": "10"}]},
+        {"name": "Barbell Curl", "type": "strength", "sets": [{"weight": "65", "reps": "10"}]}
       ]
     },
     {
       "workoutName": "Running",
       "calsBurned": 310,
       "exercises": [
-        {
-          "name": "Running",
-          "type": "run",
-          "sets": [{"duration": 28, "intensity": "Moderate", "calories": 310, "notes": "3 miles"}]
-        }
+        {"name": "Running", "type": "run", "sets": [{"duration": 28, "intensity": "Moderate", "calories": 310, "notes": "3 miles"}]}
       ]
     }
   ]
 }
 
-Rules:
-- Always return a "sessions" array, even if there is only one session
-- workoutName: infer from exercises (rows/pulldowns/curls → "Back & Biceps", bench/flyes → "Chest", etc.)
-- calsBurned: estimate per session. Strength 300-600 cal/hr, running ~100 cal/mile, cycling ~400-600 cal/hr
-- Strength sets: weight and reps are always strings (e.g. "185", "10")
-- Cardio: sets array with one object: duration (mins), intensity, calories, notes`,
+Calorie estimates per session:
+- Strength training: 6-10 cal/min depending on intensity
+- Running: ~100 cal/mile or ~600 cal/hr
+- Cycling: ~400-600 cal/hr
+- Walking: ~80-100 cal/mile
+- Yoga: ~200-300 cal/hr
+
+Always return a "sessions" array even for a single session.
+Strength sets: weight and reps as strings. Cardio: duration(mins), intensity, calories, notes.`,
     messages
   })
 
@@ -86,9 +95,9 @@ Rules:
 
   try {
     const parsed = JSON.parse(clean)
-    // Support both new {sessions:[]} format and old {workoutName, exercises} format
     if (parsed.sessions) return NextResponse.json(parsed)
-    return NextResponse.json({ sessions: [parsed] })
+    // fallback: old single-session format
+    return NextResponse.json({ sessions: [{ workoutName: parsed.workoutName || 'Workout', calsBurned: parsed.calsBurned || 0, exercises: parsed.exercises || [] }] })
   } catch {
     return NextResponse.json({ sessions: [{ workoutName: 'Workout', calsBurned: 0, exercises: [] }] })
   }
