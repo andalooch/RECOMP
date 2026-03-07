@@ -1555,6 +1555,7 @@ export default function HomePage() {
   const [tab, setTab] = useState('food')
   const [activeDate, setActiveDate] = useState(todayKey())
   const [userId, setUserId] = useState<string|null>(null)
+  const userIdRef = useRef<string|null>(null)
   const [foods, setFoods] = useState<FoodItem[]>([])
   const [sessions, setSessions] = useState<WorkoutSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -1582,6 +1583,7 @@ export default function HomePage() {
         return
       }
       setUserId(data.user.id)
+      userIdRef.current = data.user.id
       await loadProfile(data.user.id)
     })
   }, [])
@@ -1612,9 +1614,13 @@ export default function HomePage() {
     </div>
   )
 
-  if (!userId) return <LandingPage />
+  if (needsOnboarding) {
+    const uid = userId || userIdRef.current
+    if (!uid) return <LandingPage />
+    return <OnboardingWizard userId={uid} onComplete={handleOnboardingComplete}/>
+  }
 
-  if (needsOnboarding && userId) return <OnboardingWizard userId={userId} onComplete={handleOnboardingComplete}/>
+  if (!userId) return <LandingPage />
 
 
   const dayFoods = foods.filter(f=>f.logged_date===activeDate)
