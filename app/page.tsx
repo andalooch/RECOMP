@@ -1377,6 +1377,14 @@ export default function HomePage() {
       setUserId(uid)
       const { data: profile, error } = await supabase.from('profiles').select('id,macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', uid).maybeSingle()
       console.log('profile fetch:', { uid, profile, error })
+      // If error or no row → treat as new user only if no profile row exists
+      // A 400 error likely means RLS or schema issue — don't force onboarding
+      if (error && error.code !== 'PGRST116') {
+        // Real error — skip onboarding, go straight to app with defaults
+        console.error('profile error, skipping onboarding:', error)
+        setLoading(false)
+        return
+      }
       if (!profile) {
         setNeedsOnboarding(true)
       } else {
