@@ -447,12 +447,66 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
   const [newSets, setNewSets] = useState([{weight:'',reps:''}])
   const [workoutName, setWorkoutName] = useState(session?.workout_name||'')
   const [calsBurned, setCalsBurned] = useState(session?.cals_burned||0)
-
   const [exerciseGrades, setExerciseGrades] = useState<{name:string;score:number;note:string}[]>(session?.exercise_grades||[])
+  const [templates, setTemplates] = useState<{id:string;name:string;exercises:any[]}[]>([])
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [templateSaved, setTemplateSaved] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<{id:string;name:string;exercises:any[]}|null>(null)
 
   useEffect(() => {
     setExerciseGrades(session?.exercise_grades || [])
   }, [session?.id])
+
+  useEffect(() => {
+    supabase.from('workout_templates').select('*').eq('user_id', userId).order('created_at', {ascending:false})
+      .then(({data}) => setTemplates(data || []))
+  }, [userId])
+
+  const saveAsTemplate = async () => {
+    if (!session || !session.exercises.length) return
+    setSavingTemplate(true)
+    const name = workoutName || 'My Workout'
+    const exercises = session.exercises.map(e => ({ name: e.name, type: e.type, sets: e.sets }))
+    await supabase.from('workout_templates').insert({ user_id: userId, name, exercises })
+    const {data} = await supabase.from('workout_templates').select('*').eq('user_id', userId).order('created_at', {ascending:false})
+    setTemplates(data || [])
+    setSavingTemplate(false)
+    setTemplateSaved(true)
+    setTimeout(() => setTemplateSaved(false), 2000)
+  }
+
+  const loadTemplate = async (template: {id:string;name:string;exercises:any[]}) => {
+    setShowTemplates(false)
+    let sessionId = session?.id
+    if (!sessionId) {
+      const { data, error: sErr } = await supabase
+        .from('workout_sessions')
+        .insert({ user_id:userId, logged_date:activeDate, workout_name:template.name, cals_burned:0 })
+        .select('id')
+      if (sErr || !data || !data[0]) return
+      sessionId = data[0].id
+      setWorkoutName(template.name)
+    } else {
+      await supabase.from('workout_sessions').update({ workout_name: template.name }).eq('id', sessionId)
+      setWorkoutName(template.name)
+    }
+    for (const ex of template.exercises) {
+      await supabase.from('exercises').insert({ session_id: sessionId, user_id: userId, name: ex.name, type: ex.type || 'strength', sets: ex.sets || [{weight:'',reps:''}] })
+    }
+    onRefresh()
+  }
+
+  const deleteTemplate = async (id: string) => {
+    await supabase.from('workout_templates').delete().eq('id', id)
+    setTemplates(t => t.filter(x => x.id !== id))
+  }
+
+  const updateTemplate = async (id: string, name: string, exercises: any[]) => {
+    await supabase.from('workout_templates').update({ name, exercises }).eq('id', id)
+    setTemplates(t => t.map(x => x.id === id ? { ...x, name, exercises } : x))
+    setEditingTemplate(null)
+  }
 
   const runAnalysis = async () => {
     if (!session) return
@@ -554,22 +608,22 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
         </div>
       </div>
 
+      {/* AI Analysis — overall coaching at top */}
+      {session?.analysis && (
+        <div style={{background:'#0a0f0a',border:'1px solid #1a2a1a',borderRadius:12,padding:'12px 14px',marginBottom:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,color:'#6bcb96',letterSpacing:1.5,fontWeight:600}}>Overall coaching</div>
+            <button onClick={clearAnalysis} style={{background:'none',border:'none',color:'#777',cursor:'pointer',fontSize:12,padding:'0 2px'}}>×</button>
+          </div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#aaa',lineHeight:1.8}}>{session.analysis}</div>
+        </div>
+      )}
+
       {/* Exercises */}
       {session?.exercises?.map(ex => {
         const grade = exerciseGrades.find((g:any) => g.name.toLowerCase().trim() === ex.name.toLowerCase().trim())
         return <ActivityCard key={ex.id} w={{...ex, grade: grade?.score, grade_note: grade?.note}} onRemove={()=>removeExercise(ex.id)} onSaveSets={saveSets}/>
       })}
-
-      {/* AI Analysis */}
-      {session?.analysis && (
-        <div style={{background:'#0a0f0a',border:'1px solid #1a2a1a',borderRadius:11,padding:'12px 14px',marginBottom:10}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-            <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:11,color:'#6bcb96',letterSpacing:2}}>AI COACHING</div>
-            <button onClick={clearAnalysis} style={{background:'none',border:'none',color:'#999',cursor:'pointer',fontSize:12,padding:'0 2px'}}>x</button>
-          </div>
-          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#999',lineHeight:1.7}}>{session.analysis}</div>
-        </div>
-      )}
 
       {/* Add exercise form */}
       {addingExercise && (
@@ -602,14 +656,73 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
         </div>
       )}
 
-      <div style={{display:'flex',gap:7,marginTop:4}}>
-        <button onClick={()=>setAddingExercise(true)} style={{flex:2,padding:10,background:'#131313',border:'1px solid #2e2e35',borderRadius:9,color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>+ ADD EXERCISE</button>
+      {/* Templates picker */}
+      {showTemplates && (
+        <div style={{background:'#131313',border:'1px solid #2e2e35',borderRadius:12,padding:'12px 14px',marginBottom:10}}>
+          <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:12,color:'#aaa',fontWeight:600,marginBottom:10}}>Your templates</div>
+          {templates.length === 0 && (
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#555',textAlign:'center' as const,padding:'12px 0'}}>No templates yet — save a workout to create one</div>
+          )}
+          {templates.map(t => (
+            <div key={t.id} style={{borderBottom:'1px solid #1e1e22',paddingBottom:10,marginBottom:10}}>
+              {editingTemplate?.id === t.id ? (
+                // ── Edit mode ──
+                <div>
+                  <input
+                    value={editingTemplate.name}
+                    onChange={e => setEditingTemplate(et => et ? {...et, name: e.target.value} : et)}
+                    style={{background:'#1c1c22',border:'1px solid #2e2e35',borderRadius:6,padding:'6px 10px',color:'#ccc',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,width:'100%',outline:'none',boxSizing:'border-box' as const,marginBottom:8}}
+                  />
+                  {editingTemplate.exercises.map((ex, i) => (
+                    <div key={i} style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
+                      <input
+                        value={ex.name}
+                        onChange={e => setEditingTemplate(et => et ? {...et, exercises: et.exercises.map((x,j) => j===i ? {...x, name: e.target.value} : x)} : et)}
+                        style={{flex:1,background:'#1c1c22',border:'1px solid #202020',borderRadius:5,padding:'5px 8px',color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:10,outline:'none'}}
+                      />
+                      <button onClick={() => setEditingTemplate(et => et ? {...et, exercises: et.exercises.filter((_,j) => j!==i)} : et)} style={{background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:13,padding:'0 4px'}}>×</button>
+                    </div>
+                  ))}
+                  <button onClick={() => setEditingTemplate(et => et ? {...et, exercises: [...et.exercises, {name:'',type:'strength',sets:[{weight:'',reps:''}]}]} : et)} style={{background:'none',border:'none',color:'#81b29a',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer',padding:'2px 0',marginBottom:8}}>+ add exercise</button>
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={() => updateTemplate(editingTemplate.id, editingTemplate.name, editingTemplate.exercises)} style={{flex:1,padding:'6px',background:'#81b29a22',border:'1px solid #81b29a44',borderRadius:6,color:'#81b29a',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer'}}>Save changes</button>
+                    <button onClick={() => setEditingTemplate(null)} style={{padding:'6px 10px',background:'transparent',border:'1px solid #2e2e35',borderRadius:6,color:'#666',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer'}}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                // ── View mode ──
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                  <div>
+                    <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:13,color:'#ccc'}}>{t.name}</div>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#555',marginTop:2}}>{t.exercises.length} exercises · {t.exercises.map((e:any)=>e.name).join(', ').slice(0,40)}{t.exercises.map((e:any)=>e.name).join(', ').length > 40 ? '…' : ''}</div>
+                  </div>
+                  <div style={{display:'flex',gap:5,flexShrink:0,marginLeft:8}}>
+                    <button onClick={()=>loadTemplate(t)} style={{padding:'5px 10px',background:'#f4a26122',border:'1px solid #f4a26144',borderRadius:6,color:'#f4a261',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer'}}>Load</button>
+                    <button onClick={()=>setEditingTemplate({...t})} style={{padding:'5px 8px',background:'transparent',border:'1px solid #2e2e35',borderRadius:6,color:'#888',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer'}}>Edit</button>
+                    <button onClick={()=>deleteTemplate(t.id)} style={{padding:'5px 8px',background:'transparent',border:'1px solid #2e2e35',borderRadius:6,color:'#555',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer'}}>×</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button onClick={()=>setShowTemplates(false)} style={{marginTop:2,width:'100%',padding:'7px',background:'transparent',border:'1px solid #2e2e35',borderRadius:7,color:'#666',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer'}}>Close</button>
+        </div>
+      )}
+
+      <div style={{display:'flex',gap:7,marginTop:4,flexWrap:'wrap' as const}}>
+        <button onClick={()=>setShowTemplates(s=>!s)} style={{flex:1,padding:10,background:'#131313',border:'1px solid #2e2e35',borderRadius:9,color:'#aaa',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer',minWidth:80}}>📋 Templates</button>
+        <button onClick={()=>setAddingExercise(true)} style={{flex:2,padding:10,background:'#131313',border:'1px solid #2e2e35',borderRadius:9,color:'#bbb',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>+ Add exercise</button>
         {session && session.exercises.length > 0 && (
-          <button onClick={runAnalysis} disabled={analyzing} style={{flex:1,padding:10,background:analyzing?'#18181c':'#0a1a0a',border:`1px solid ${analyzing?'#2e2e35':'#1a3a1a'}`,borderRadius:9,color:analyzing?'#333':'#6bcb96',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:analyzing?'default':'pointer'}}>
-            {analyzing?'Reviewing...':session?.analysis?'RE-Review':'Review'}
+          <button onClick={saveAsTemplate} disabled={savingTemplate} style={{flex:1,padding:10,background:templateSaved?'#0a1a0a':'#131313',border:`1px solid ${templateSaved?'#1a3a1a':'#2e2e35'}`,borderRadius:9,color:templateSaved?'#6bcb96':'#888',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer',minWidth:80}}>
+            {templateSaved?'✓ Saved':'💾 Save'}
           </button>
         )}
       </div>
+      {session && session.exercises.length > 0 && (
+        <button onClick={runAnalysis} disabled={analyzing} style={{width:'100%',marginTop:7,padding:10,background:analyzing?'#18181c':'#0a1a0a',border:`1px solid ${analyzing?'#2e2e35':'#1a3a1a'}`,borderRadius:9,color:analyzing?'#333':'#6bcb96',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:analyzing?'default':'pointer'}}>
+          {analyzing?'Reviewing...':session?.analysis?'Re-review workout':'Review workout'}
+        </button>
+      )}
     </div>
   )
 }
