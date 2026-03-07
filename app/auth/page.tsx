@@ -1,169 +1,1662 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function AuthPage() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [googleLoading, setGoogleLoading] = useState(false)
-  const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
-  const [checkingSession, setCheckingSession] = useState(true)
+const MACRO_GOAL = { calories: 2800, protein: 215, carbs: 270, fat: 75 }
+const MEAL_SLOTS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks']
 
-  // Auto-redirect if already logged in — use getUser() for server-side validation
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data, error }) => {
-      if (data.user && !error) {
-        window.location.href = '/'
-      } else {
-        // Clear any stale local session
-        await supabase.auth.signOut()
-        setCheckingSession(false)
+function todayKey() {
+  const d = new Date(); d.setHours(12,0,0,0); return d.toISOString().slice(0,10)
+}
+function getPast7Days() {
+  const days: string[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setHours(12,0,0,0); d.setDate(d.getDate()-i)
+    days.push(d.toISOString().slice(0,10))
+  }
+  return days
+}
+const WEEK = getPast7Days()
+
+// ── Types ─────────────────────────────────────────────────────────────────
+interface FoodItem { id: string; name: string; calories: number; protein: number; carbs: number; fat: number; meal: string; logged_date: string; rating?: number; ai_analysis?: string }
+interface Exercise { id: string; name: string; type: string; sets?: {weight:string;reps:string}[]; duration?: number; intensity?: string; calories?: number; notes?: string; location?: string; grade?: number; grade_note?: string }
+interface WorkoutSession { id: string; workout_name: string; rating?: number; cals_burned?: number; analysis?: string; logged_date: string; exercises: Exercise[]; exercise_grades?: {name:string;score:number;note:string}[] }
+interface SavedMeal { id: string; name: string; calories: number; protein: number; carbs: number; fat: number; rating?: number }
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function getActivityType(name: string) {
+  const n = (name||'').toLowerCase()
+  const strengthKw = ['dumbbell','barbell','cable','hammer strength','machine','press','curl','extension','pulldown','pull down','pushdown','squat','lunge','deadlift','rdl','romanian','hip thrust','fly','flye','raise','face pull','dip','crunch','plank','ab ','abs','lat pull','chest','bench','incline','decline','seated','single arm','life fitness row','high row','low row','t-bar','cable row','db row','dumbbell row']
+  if (strengthKw.some(k => n.includes(k))) return 'strength'
+  if (n.includes('cycling')||n.includes('bike')||n.includes('spin')||n.includes('peloton')) return 'cycling'
+  if (n.includes('hotworx')||n.includes('hot yoga')||n.includes('infrared')||n.includes('isometric')) return 'hotworx'
+  if (n.includes('yoga')||n.includes('vinyasa')||n.includes('yin yoga')) return 'yoga'
+  if (n.includes('pilates')) return 'pilates'
+  if (n.includes('treadmill')||n.includes('jogging')||(n.includes('run')&&!n.includes('romanian'))) return 'run'
+  if (n==='walk'||n.includes('walking')||n.includes('hike')) return 'walk'
+  if (n.includes('swim')) return 'swim'
+  if (n.includes('hiit')||n.includes('circuit')||n.includes('bootcamp')) return 'hiit'
+  if (n==='rowing machine'||n.includes('rowing machine')) return 'rowing'
+  if (n.includes('elliptical')||n.includes('stair climber')) return 'cardio_machine'
+  if (n.includes('stretch')||n.includes('mobility')||n.includes('foam roll')) return 'mobility'
+  return 'strength'
+}
+function activityIcon(type: string) {
+  return ({cycling:'🚴',yoga:'🧘',run:'🏃',walk:'🚶',swim:'🏊',hiit:'⚡',pilates:'🤸',hotworx:'🔥',class:'🎯',rowing:'🚣',cardio_machine:'⚙️',mobility:'🙆',strength:'💪'} as any)[type]||'💪'
+}
+function activityAccentColor(type: string) {
+  return ({cycling:'#47c8ff',yoga:'#c447ff',run:'#ff9f47',walk:'#4aff7a',swim:'#47c8ff',hiit:'#ff6b6b',pilates:'#c447ff',hotworx:'#ff6b6b',class:'#e8ff47',rowing:'#47c8ff',cardio_machine:'#ff9f47',mobility:'#4aff7a',strength:'#888'} as any)[type]||'#888'
+}
+function isCardioType(type: string) {
+  return ['cycling','yoga','run','walk','swim','hiit','pilates','hotworx','class','rowing','cardio_machine','mobility'].includes(type)
+}
+function muscleColor(n: string) {
+  n=(n||'').toLowerCase()
+  if(n.includes('press')||n.includes('shoulder')||n.includes('lateral')||n.includes('raise'))return'#ff9f47'
+  if(n.includes('pull')||n.includes('row')||n.includes('back')||n.includes('lat')||n.includes('deadlift')||n.includes('face pull'))return'#47c8ff'
+  if(n.includes('chest')||n.includes('fly')||n.includes('pec')||n.includes('incline')||n.includes('bench'))return'#c447ff'
+  if(n.includes('squat')||n.includes('leg')||n.includes('lunge')||n.includes('calf'))return'#ff6b6b'
+  if(n.includes('curl')||n.includes('bicep'))return'#e8ff47'
+  if(n.includes('tricep')||n.includes('skull')||n.includes('overhead')||n.includes('extension')||n.includes('rope')||n.includes('dip'))return'#aaffaa'
+  return'#888'
+}
+function ratingColor(score?: number) {
+  return !score?'#555':score>=8?'#4aff7a':score>=6?'#e8ff47':score>=4?'#ff9f47':'#ff6b6b'
+}
+
+// ── Macro Bar ─────────────────────────────────────────────────────────────
+function MacroBar({ label, value, goal, color }: { label:string; value:number; goal:number; color:string }) {
+  const pct = Math.min((value/goal)*100, 100), over = value > goal
+  return (
+    <div style={{marginBottom:9}}>
+      <div style={{display:'flex',justifyContent:'space-between',fontFamily:"'DM Mono',monospace",fontSize:10,marginBottom:3}}>
+        <span style={{color:over?'#ff6b6b':'#555',letterSpacing:1}}>{label.toUpperCase()}</span>
+        <span style={{color:over?'#ff6b6b':color}}>{value}<span style={{color:'#252525'}}>/{goal}{label==='Cal'?'':'g'}</span></span>
+      </div>
+      <div style={{background:'#141414',borderRadius:3,height:5}}>
+        <div style={{width:`${pct}%`,height:'100%',background:over?'#ff6b6b':color,borderRadius:3,transition:'width 0.5s'}}/>
+      </div>
+    </div>
+  )
+}
+
+// ── Manual Add Modal ──────────────────────────────────────────────────────
+function ManualModal({ meal, onAdd, onClose }: { meal:string; onAdd:(f:any)=>void; onClose:()=>void }) {
+  const [f,setF] = useState({name:'',calories:'',protein:'',carbs:'',fat:''})
+  const s: React.CSSProperties = {background:'#0a0a0a',border:'1px solid #202020',borderRadius:6,padding:'8px 10px',color:'#ccc',fontFamily:"'DM Mono',monospace",fontSize:12,width:'100%',outline:'none',boxSizing:'border-box'}
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.93)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,backdropFilter:'blur(8px)'}}>
+      <div style={{background:'#0c0c0c',border:'1px solid #1e1e1e',borderRadius:16,padding:24,width:320}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#e8ff47',letterSpacing:2,marginBottom:14}}>ADD TO {meal.toUpperCase()}</div>
+        <div style={{display:'flex',flexDirection:'column',gap:7}}>
+          <input value={f.name} onChange={e=>setF(p=>({...p,name:e.target.value}))} placeholder="Food name *" style={s}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+            {[['Calories *','calories'],['Protein (g)','protein'],['Carbs (g)','carbs'],['Fat (g)','fat']].map(([p,k])=>(
+              <input key={k} value={(f as any)[k]} onChange={e=>setF(prev=>({...prev,[k]:e.target.value}))} placeholder={p} type="number" style={s}/>
+            ))}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:14}}>
+          <button onClick={onClose} style={{flex:1,padding:9,background:'transparent',border:'1px solid #1e1e1e',borderRadius:7,color:'#444',fontFamily:"'DM Mono',monospace",fontSize:11,cursor:'pointer'}}>CANCEL</button>
+          <button onClick={()=>{if(f.name&&f.calories){onAdd({name:f.name,calories:+f.calories,protein:+f.protein||0,carbs:+f.carbs||0,fat:+f.fat||0});onClose();}}}
+            style={{flex:2,padding:9,background:'#e8ff47',border:'none',borderRadius:7,color:'#080808',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:1.5,cursor:'pointer'}}>ADD</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Meal Rating Modal ─────────────────────────────────────────────────────
+function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; onClose:()=>void; onRated:(r:{score:number;notes:string;itemScores:any[]})=>void; forceRefresh?:boolean }) {
+  const [result, setResult] = useState<{mealScore:number;mealNotes:string;items:{name:string;score:number;note:string}[]}|null>(
+    (!forceRefresh && meal.rating) ? {mealScore:meal.rating, mealNotes:meal.ai_analysis||'', items:meal.itemScores||[]} : null
+  )
+  const [loading, setLoading] = useState(forceRefresh || !meal.rating)
+
+  useEffect(()=>{
+    if (!forceRefresh && meal.rating) return
+    const go = async () => {
+      setLoading(true)
+      setResult(null)
+      try {
+        const res = await fetch('/api/rate-meal', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ items: meal.items, mealName: meal.name, calories: meal.calories, protein: meal.protein, carbs: meal.carbs, fat: meal.fat, goals: MACRO_GOAL })
+        })
+        const data = await res.json()
+        setResult(data)
+      } catch {
+        setResult({ mealScore: 5, mealNotes: 'Unable to rate at this time.', items: [] })
       }
-    })
-    // Listen for auth state changes (handles OAuth callback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        // Validate server-side before redirecting
-        const { data, error } = await supabase.auth.getUser()
-        if (data.user && !error) {
-          window.location.href = '/'
+      setLoading(false)
+    }
+    go()
+  }, [forceRefresh])
+
+  const handleDone = () => {
+    if (result) onRated({ score: result.mealScore, notes: result.mealNotes, itemScores: result.items })
+    onClose()
+  }
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.95)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300,backdropFilter:'blur(10px)'}}>
+      <div style={{background:'#0c0c0c',border:'1px solid #1e1e1e',borderRadius:16,padding:24,width:340,maxWidth:'94vw',maxHeight:'85vh',overflowY:'auto'}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#e8ff47',letterSpacing:2,marginBottom:4}}>{meal.name.toUpperCase()} RATING</div>
+        {loading ? (
+          <div style={{textAlign:'center',padding:'40px 0'}}>
+            <div style={{width:24,height:24,border:'2px solid #1e1e1e',borderTop:'2px solid #e8ff47',borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 12px'}}/>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#333'}}>Rating each item...</div>
+          </div>
+        ) : result ? (
+          <>
+            {/* Per-item scores */}
+            {result.items && result.items.length > 0 && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1.5,marginBottom:8}}>ITEM BREAKDOWN</div>
+                {result.items.map((item, i) => (
+                  <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'8px 0',borderBottom:'1px solid #0e0e0e'}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(item.score),lineHeight:1,minWidth:28,textAlign:'center'}}>{item.score}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:'#888',fontWeight:600,marginBottom:2}}>{item.name}</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',lineHeight:1.5}}>{item.note}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Meal summary score */}
+            <div style={{background:'#0a0f0a',border:'1px solid #1a3a1a',borderRadius:10,padding:'14px',textAlign:'center',marginBottom:14}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1.5,marginBottom:4}}>MEAL SCORE</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:56,color:ratingColor(result.mealScore),lineHeight:1}}>{result.mealScore}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1}}>/10</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#444',lineHeight:1.6,marginTop:10,textAlign:'left'}}>{result.mealNotes}</div>
+            </div>
+          </>
+        ) : null}
+        <button onClick={handleDone} style={{width:'100%',padding:12,background:'#e8ff47',border:'none',borderRadius:10,color:'#080808',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:2,cursor:'pointer'}}>DONE</button>
+      </div>
+    </div>
+  )
+}
+
+// ── Activity Card ─────────────────────────────────────────────────────────
+function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>void; onSaveSets?:(id:string, sets:{weight:string;reps:string}[])=>Promise<void> }) {
+  const aType = w.type && w.type!=='strength' ? w.type : getActivityType(w.name)
+  const isCardio = isCardioType(aType)
+  const accentColor = isCardio ? activityAccentColor(aType) : muscleColor(w.name)
+  const icon = activityIcon(aType)
+
+  // For cardio stored via manual add, fields may be in sets[0]
+  const cardioData = isCardio ? (w.sets?.[0] as any)||{} : {}
+  const duration = w.duration || cardioData.duration
+  const intensity = w.intensity || cardioData.intensity
+  const calories = w.calories || cardioData.calories
+  const notes = w.notes || cardioData.notes
+  const location = w.location || cardioData.location
+
+  if (isCardio) {
+    const cd = (w.sets&&w.sets[0]) ? w.sets[0] as any : {}
+    const dur = w.duration || cd.duration
+    const inten = w.intensity || cd.intensity
+    const cal = w.calories || cd.calories
+    const loc = w.location || cd.location
+    const note = w.notes || cd.notes
+    return (
+      <div style={{marginBottom:7,background:'#0c0c0c',border:`1px solid ${accentColor}22`,borderLeft:`3px solid ${accentColor}`,borderRadius:11,overflow:'hidden'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 13px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{fontSize:22,lineHeight:1}}>{icon}</div>
+            <div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
+              <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap'}}>
+                {dur&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:accentColor,background:accentColor+'18',padding:'2px 7px',borderRadius:4}}>{dur} min</span>}
+                {inten&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#555',background:'#141414',padding:'2px 7px',borderRadius:4}}>{inten}</span>}
+                {cal&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#ff6b6b',background:'#ff6b6b15',padding:'2px 7px',borderRadius:4}}>{cal} cal</span>}
+                {loc&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333',background:'#111',padding:'2px 7px',borderRadius:4}}>{loc}</span>}
+              </div>
+              {note&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',marginTop:5,lineHeight:1.5}}>{note}</div>}
+            </div>
+          </div>
+          {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px',flexShrink:0}}>x</button>}
+        </div>
+      </div>
+    )
+  }
+
+  const sets = w.sets||[]
+  const [editSets, setEditSets] = useState(sets.map(s=>({weight:s.weight||'',reps:s.reps||''})))
+  const [dirty, setDirty] = useState(false)
+
+  const vol = editSets.reduce((s,set)=>{const w2=set.weight==='BW'?208:(+set.weight||0);return s+w2*(+set.reps||0);},0)
+  const nonBW = editSets.filter(s=>s.weight!=='BW')
+  const maxW = nonBW.length>0 ? Math.max(...nonBW.map(s=>+s.weight||0)) : 'BW'
+
+  const updateSet = (i:number, field:'weight'|'reps', val:string) => {
+    setEditSets(prev=>prev.map((s,j)=>j===i?{...s,[field]:val}:s))
+    setDirty(true)
+  }
+  const addSet = () => {
+    const last = editSets[editSets.length-1]
+    setEditSets(prev=>[...prev,{weight:last?.weight||'',reps:last?.reps||''}])
+    setDirty(true)
+  }
+  const removeSet = (i:number) => {
+    setEditSets(prev=>prev.filter((_,j)=>j!==i))
+    setDirty(true)
+  }
+  const saveEdits = async () => {
+    if (onSaveSets) await onSaveSets(w.id, editSets)
+    setDirty(false)
+  }
+
+  const iStyle: React.CSSProperties = {background:'transparent',border:'none',color:'#999',fontFamily:"'DM Mono',monospace",fontSize:11,width:'100%',outline:'none',padding:'1px 2px'}
+
+  return (
+    <div style={{marginBottom:7,background:'#0c0c0c',border:`1px solid ${dirty?'#2a2a1a':'#181818'}`,borderRadius:11,overflow:'hidden',transition:'border-color 0.2s'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 13px 7px',borderBottom:'1px solid #111'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{width:3,height:14,background:accentColor,borderRadius:2}}/>
+          <div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2e2e2e',marginTop:1}}>{editSets.length} sets · max {maxW}{maxW!=='BW'?'lb':''} · {vol.toLocaleString()} vol</div>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          {w.grade && (
+            <div style={{textAlign:'center'}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(w.grade),lineHeight:1}}>{w.grade}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5}}>/10</div>
+            </div>
+          )}
+          {dirty && <button onClick={saveEdits} style={{background:'#e8ff4718',border:'1px solid #e8ff4744',borderRadius:4,color:'#e8ff47',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'2px 7px',cursor:'pointer'}}>SAVE</button>}
+          {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px'}}>x</button>}
+        </div>
+      </div>
+      <div style={{padding:'5px 13px 9px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'18px 1fr 1fr 1fr 20px',gap:3,marginBottom:3}}>
+          {['','WEIGHT','REPS','VOL',''].map((h,i)=>(<div key={i} style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2a2a2a',letterSpacing:1}}>{h}</div>))}
+        </div>
+        {editSets.map((set,i)=>{
+          const w2=set.weight==='BW'?208:(+set.weight||0)
+          const sv=w2*(+set.reps||0)
+          return (
+            <div key={i} style={{display:'grid',gridTemplateColumns:'18px 1fr 1fr 1fr 20px',gap:3,padding:'3px 0',borderTop:'1px solid #0e0e0e',alignItems:'center'}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#2a2a2a'}}>{i+1}</div>
+              <div style={{background:'#0a0a0a',borderRadius:4,border:'1px solid #141414',padding:'2px 4px'}}>
+                <input value={set.weight} onChange={e=>updateSet(i,'weight',e.target.value)} style={iStyle} placeholder="wt"/>
+              </div>
+              <div style={{background:'#0a0a0a',borderRadius:4,border:'1px solid #141414',padding:'2px 4px'}}>
+                <input value={set.reps} onChange={e=>updateSet(i,'reps',e.target.value)} type="number" style={iStyle} placeholder="reps"/>
+              </div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#3a3a3a'}}>{sv>0?sv.toLocaleString():'—'}</div>
+              <button onClick={()=>removeSet(i)} style={{background:'none',border:'none',color:'#1e1e1e',cursor:'pointer',fontSize:12,padding:0,lineHeight:1}}>x</button>
+            </div>
+          )
+        })}
+        <button onClick={addSet} style={{marginTop:6,background:'transparent',border:'1px solid #141414',borderRadius:4,color:'#2a2a2a',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'3px 10px',cursor:'pointer',letterSpacing:0.5}}>+ SET</button>
+        {w.grade_note && (
+          <div style={{marginTop:8,padding:'7px 9px',background:'#0a0f0a',border:'1px solid #1a2a1a',borderRadius:6,fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a5a3a',lineHeight:1.5}}>{w.grade_note}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Food Tab ──────────────────────────────────────────────────────────────
+function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:FoodItem[]; activeDate:string; userId:string; onRefresh:()=>void; macroGoal:typeof MACRO_GOAL }) {
+  const [modal, setModal] = useState<string|null>(null)
+  const [ratingMeal, setRatingMeal] = useState<any|null>(null)
+  const [forceRefresh, setForceRefresh] = useState(false)
+
+  const openRating = (mealData: any, isReRate: boolean) => {
+    setRatingMeal(mealData)
+    setForceRefresh(isReRate)
+  }
+
+  const dayFoods = foods.filter(f => f.logged_date === activeDate)
+  const meals = MEAL_SLOTS.reduce((a,m) => ({...a,[m]:dayFoods.filter(f=>f.meal===m)}), {} as Record<string,FoodItem[]>)
+  const totals = dayFoods.reduce((a,f)=>({calories:a.calories+f.calories,protein:a.protein+(+f.protein||0),carbs:a.carbs+(+f.carbs||0),fat:a.fat+(+f.fat||0)}),{calories:0,protein:0,carbs:0,fat:0})
+  const calLeft = MACRO_GOAL.calories - totals.calories
+
+  const addFood = async (meal: string, food: any) => {
+    await supabase.from('food_logs').insert({ user_id:userId, logged_date:activeDate, meal, name:food.name, calories:food.calories, protein:food.protein||0, carbs:food.carbs||0, fat:food.fat||0 })
+    onRefresh()
+  }
+  const removeFood = async (id: string) => {
+    await supabase.from('food_logs').delete().eq('id', id)
+    onRefresh()
+  }
+  const saveRating = async (result: {score:number;notes:string;itemScores?:any[]}) => {
+    if (!ratingMeal) return
+    const slotFoods = meals[ratingMeal.slot]||[]
+    for (const f of slotFoods) {
+      const itemScore = result.itemScores?.find((s:any) => s.name.toLowerCase().trim() === f.name.toLowerCase().trim())
+      await supabase.from('food_logs').update({
+        rating: itemScore ? itemScore.score : result.score,
+        ai_analysis: itemScore ? itemScore.note : result.notes
+      }).eq('id', f.id)
+    }
+    onRefresh()
+    setRatingMeal(null)
+  }
+
+  const ratedItems = dayFoods.filter(f=>f.rating)
+  const dailyScore = ratedItems.length > 0
+    ? Math.round((ratedItems.reduce((s,f)=>s+(f.rating||0),0)/ratedItems.length)*10)/10
+    : null
+
+  return (
+    <div style={{paddingBottom:40}}>
+      {ratingMeal && <MealRatingModal meal={{name:ratingMeal.name,items:ratingMeal.items,calories:ratingMeal.calories,protein:ratingMeal.protein,carbs:ratingMeal.carbs,fat:ratingMeal.fat,rating:ratingMeal.rating,ai_analysis:ratingMeal.ai_analysis,itemScores:ratingMeal.itemScores}} onClose={()=>setRatingMeal(null)} onRated={saveRating} forceRefresh={forceRefresh}/>}
+      <div style={{margin:'0 14px 12px',background:'#0c0c0c',border:'1px solid #181818',borderRadius:14,padding:'13px 14px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',letterSpacing:1.5}}>DAILY MACROS</div>
+          {dailyScore ? (
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1}}>NUTRITION SCORE</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:ratingColor(dailyScore),lineHeight:1}}>{dailyScore}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a'}}>/10</div>
+            </div>
+          ) : (
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#1e1e1e',letterSpacing:1}}>RATE MEALS TO SCORE</div>
+          )}
+        </div>
+        <MacroBar label="Cal" value={totals.calories} goal={macroGoal.calories} color="#e8ff47"/>
+        <MacroBar label="Protein" value={Math.round(totals.protein)} goal={macroGoal.protein} color="#47c8ff"/>
+        <MacroBar label="Carbs" value={Math.round(totals.carbs)} goal={macroGoal.carbs} color="#ff9f47"/>
+        <MacroBar label="Fat" value={Math.round(totals.fat)} goal={macroGoal.fat} color="#c447ff"/>
+      </div>
+
+      {MEAL_SLOTS.map(meal => {
+        const mFoods = meals[meal]||[]
+        const mc = mFoods.reduce((s,f)=>s+f.calories,0)
+        const mp = mFoods.reduce((s,f)=>s+(+f.protein||0),0)
+        return (
+          <div key={meal} style={{margin:'0 14px 9px',background:'#0c0c0c',border:'1px solid #181818',borderRadius:11,overflow:'hidden'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 13px 8px'}}>
+              <div>
+                <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:2,color:'#bbb'}}>{meal.toUpperCase()}</span>
+                {mFoods.length>0&&<span style={{marginLeft:7,fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333'}}>{mc} kcal · {Math.round(mp)}g pro</span>}
+              </div>
+              <div style={{display:'flex',gap:5}}>
+                {mFoods.length>0&&(()=>{
+                  const mealRating = mFoods[0]?.rating
+                  const sc = ratingColor(mealRating)
+                  const mc2 = mFoods.reduce((s,f)=>s+f.calories,0)
+                  const mp2 = mFoods.reduce((s,f)=>s+(+f.protein||0),0)
+                  const mcarbs = mFoods.reduce((s,f)=>s+(+f.carbs||0),0)
+                  const mfat = mFoods.reduce((s,f)=>s+(+f.fat||0),0)
+                  return <button onClick={()=>openRating({name:meal,items:mFoods,calories:mc2,protein:mp2,carbs:mcarbs,fat:mfat,rating:mealRating,ai_analysis:mFoods[0]?.ai_analysis,itemScores:mFoods.map(f=>({name:f.name,score:f.rating,note:f.ai_analysis})).filter(s=>s.score),slot:meal}, !!mealRating)}
+                    style={{background:'#0a1a0a',border:`1px solid ${mealRating?'#1e4a1e':'#1e3a1e'}`,borderRadius:5,color:mealRating?sc:'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                    {mealRating&&<span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,lineHeight:1}}>{mealRating}</span>}
+                    {mealRating?'re-rate':'rate'}
+                  </button>
+                })()}
+                <button onClick={()=>setModal(meal)} style={{background:'#141414',border:'1px solid #222',borderRadius:5,color:'#444',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer'}}>+add</button>
+              </div>
+            </div>
+            {mFoods.length===0
+              ?<div style={{padding:'2px 13px 10px',fontFamily:"'DM Mono',monospace",fontSize:9,color:'#1a1a1a'}}>Nothing logged</div>
+              :<div style={{borderTop:'1px solid #111'}}>
+                {mFoods.map(f=>(
+                  <div key={f.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'7px 13px',borderBottom:'1px solid #0e0e0e'}}>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <div style={{fontSize:12,color:'#aaa',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.name}</div>
+                        {f.rating && (
+                          <span style={{background:ratingColor(f.rating)+'22',border:`1px solid ${ratingColor(f.rating)}44`,borderRadius:4,color:ratingColor(f.rating),fontFamily:"'Bebas Neue',sans-serif",fontSize:10,padding:'1px 5px',flexShrink:0,lineHeight:1.4}}>
+                            {f.rating}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333',marginTop:2}}>
+                        <span style={{color:'#e8ff47'}}>{f.calories}cal</span>
+                        {f.protein>0&&<span> · <span style={{color:'#47c8ff'}}>{f.protein}p</span></span>}
+                        {f.carbs>0&&<span> · <span style={{color:'#ff9f47'}}>{f.carbs}c</span></span>}
+                        {f.fat>0&&<span> · <span style={{color:'#c447ff'}}>{f.fat}f</span></span>}
+                      </div>
+                    </div>
+                    <button onClick={()=>removeFood(f.id)} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px',flexShrink:0}}>x</button>
+                  </div>
+                ))}
+              </div>
+            }
+          </div>
+        )
+      })}
+
+      <div style={{margin:'8px 14px 0',background:'#0c0c0c',border:'1px solid #181818',borderRadius:10,padding:'10px 13px'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',textAlign:'center'}}>
+          {[['CAL',String(totals.calories),'#e8ff47'],['PRO',`${Math.round(totals.protein)}g`,'#47c8ff'],['CARB',`${Math.round(totals.carbs)}g`,'#ff9f47'],['FAT',`${Math.round(totals.fat)}g`,'#c447ff']].map(([l,v,c])=>(
+            <div key={l}><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:17,color:c,lineHeight:1}}>{v}</div><div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2a2a2a',letterSpacing:0.5,marginTop:2}}>{l}</div></div>
+          ))}
+        </div>
+      </div>
+      {modal&&<ManualModal meal={modal} onAdd={f=>addFood(modal,f)} onClose={()=>setModal(null)}/>}
+    </div>
+  )
+}
+
+// ── Workout Tab ───────────────────────────────────────────────────────────
+function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:WorkoutSession|null; activeDate:string; userId:string; onRefresh:()=>void }) {
+  const [analyzing, setAnalyzing] = useState(false)
+  const [addingExercise, setAddingExercise] = useState(false)
+  const [newEx, setNewEx] = useState({ name:'', type:'strength', duration:'', intensity:'', calories:'', notes:'' })
+  const [newSets, setNewSets] = useState([{weight:'',reps:''}])
+  const [workoutName, setWorkoutName] = useState(session?.workout_name||'')
+  const [calsBurned, setCalsBurned] = useState(session?.cals_burned||0)
+
+  const [exerciseGrades, setExerciseGrades] = useState<{name:string;score:number;note:string}[]>(session?.exercise_grades||[])
+
+  useEffect(() => {
+    setExerciseGrades(session?.exercise_grades || [])
+  }, [session?.id])
+
+  const runAnalysis = async () => {
+    if (!session) return
+    setAnalyzing(true)
+    try {
+      const res = await fetch('/api/analyze-workout', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ exercises: session.exercises, workoutName: session.workout_name, calsBurned: session.cals_burned })
+      })
+      const text = await res.text()
+      let data: any = {}
+      try { data = JSON.parse(text) } catch { console.error('parse error:', text); setAnalyzing(false); return }
+      const grades = data.exerciseGrades || []
+      setExerciseGrades(grades)
+      const updates: any = { rating: data.rating, analysis: data.analysis }
+      if (grades.length > 0) updates.exercise_grades = grades
+      if (data.workoutName) { updates.workout_name = data.workoutName; setWorkoutName(data.workoutName) }
+      await supabase.from('workout_sessions').update(updates).eq('id', session.id)
+      onRefresh()
+    } catch(e) { console.error('runAnalysis error:', e) }
+    setAnalyzing(false)
+  }
+
+  const addExercise = async () => {
+    let sessionId = session?.id
+    if (!sessionId) {
+      const { data, error: sErr } = await supabase
+        .from('workout_sessions')
+        .insert({ user_id:userId, logged_date:activeDate, workout_name:workoutName||'Workout', cals_burned:calsBurned||0 })
+        .select('id')
+      if (sErr || !data || data.length === 0) { console.error('session create failed', sErr); return }
+      sessionId = data[0].id
+    }
+    if (!sessionId) return
+    const aType = getActivityType(newEx.name)
+    const isCardio = isCardioType(aType)
+    const insertData: any = {
+      session_id: sessionId,
+      user_id: userId,
+      name: newEx.name,
+      type: isCardio ? aType : 'strength',
+    }
+    if (isCardio) {
+      insertData.sets = [{
+        duration: newEx.duration||null,
+        intensity: newEx.intensity||null,
+        calories: newEx.calories||null,
+        notes: newEx.notes||null
+      }]
+    } else {
+      insertData.sets = newSets.filter(s => s.weight || s.reps)
+    }
+    const { error: exErr } = await supabase.from('exercises').insert(insertData)
+    if (exErr) { console.error('exercise insert failed', exErr); return }
+    setAddingExercise(false)
+    setNewEx({ name:'', type:'strength', duration:'', intensity:'', calories:'', notes:'' })
+    setNewSets([{weight:'',reps:''}])
+    onRefresh()
+  }
+
+  const removeExercise = async (id: string) => {
+    await supabase.from('exercises').delete().eq('id', id)
+    if (session && session.exercises.length <= 1) {
+      await supabase.from('workout_sessions').update({ rating: null, analysis: null }).eq('id', session.id)
+    }
+    onRefresh()
+  }
+
+  const saveSets = async (id: string, sets: {weight:string;reps:string}[]) => {
+    await supabase.from('exercises').update({ sets }).eq('id', id)
+    onRefresh()
+  }
+
+  const clearAnalysis = async () => {
+    if (!session) return
+    await supabase.from('workout_sessions').update({ rating: null, analysis: null }).eq('id', session.id)
+    onRefresh()
+  }
+
+  const s: React.CSSProperties = {background:'#0a0a0a',border:'1px solid #202020',borderRadius:6,padding:'7px 10px',color:'#ccc',fontFamily:"'DM Mono',monospace",fontSize:11,width:'100%',outline:'none',boxSizing:'border-box'}
+  const aType = getActivityType(newEx.name)
+  const newIsCardio = isCardioType(aType)
+
+  return (
+    <div style={{padding:'0 14px 40px'}}>
+      {/* Session header */}
+      <div style={{background:'#0c0c0c',border:'1px solid #181818',borderRadius:14,padding:'13px 14px',marginBottom:10}}>
+        <input value={workoutName} onChange={e=>setWorkoutName(e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({workout_name:workoutName}).eq('id',session.id); onRefresh() }}} placeholder="Workout name..." style={{background:'transparent',border:'none',color:'#bbb',fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:2,width:'100%',outline:'none'}}/>
+        <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333'}}>CALS BURNED:</div>
+          <input type="number" value={calsBurned||''} onChange={e=>setCalsBurned(+e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({cals_burned:calsBurned}).eq('id',session.id); onRefresh() }}} placeholder="0" style={{background:'#111',border:'1px solid #1e1e1e',borderRadius:4,color:'#ff6b6b',fontFamily:"'DM Mono',monospace",fontSize:11,padding:'3px 7px',width:70,outline:'none'}}/>
+          {session?.rating && (
+            <div style={{marginLeft:'auto',textAlign:'center'}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:ratingColor(session.rating),lineHeight:1}}>{session.rating}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2a2a2a',letterSpacing:1}}>/10</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Exercises */}
+      {session?.exercises?.map(ex => {
+        const grade = exerciseGrades.find((g:any) => g.name.toLowerCase().trim() === ex.name.toLowerCase().trim())
+        return <ActivityCard key={ex.id} w={{...ex, grade: grade?.score, grade_note: grade?.note}} onRemove={()=>removeExercise(ex.id)} onSaveSets={saveSets}/>
+      })}
+
+      {/* AI Analysis */}
+      {session?.analysis && (
+        <div style={{background:'#0a0f0a',border:'1px solid #1a2a1a',borderRadius:11,padding:'12px 14px',marginBottom:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#4aff7a',letterSpacing:2}}>AI COACHING</div>
+            <button onClick={clearAnalysis} style={{background:'none',border:'none',color:'#2a2a2a',cursor:'pointer',fontSize:12,padding:'0 2px'}}>x</button>
+          </div>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#555',lineHeight:1.7}}>{session.analysis}</div>
+        </div>
+      )}
+
+      {/* Add exercise form */}
+      {addingExercise && (
+        <div style={{background:'#0c0c0c',border:'1px solid #1e1e1e',borderRadius:11,padding:'13px 14px',marginBottom:10}}>
+          <input value={newEx.name} onChange={e=>setNewEx(p=>({...p,name:e.target.value}))} placeholder="Exercise name..." style={{...s,marginBottom:7}}/>
+          {newIsCardio ? (
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:7}}>
+              <input value={newEx.duration} onChange={e=>setNewEx(p=>({...p,duration:e.target.value}))} placeholder="Duration (min)" type="number" style={s}/>
+              <input value={newEx.intensity} onChange={e=>setNewEx(p=>({...p,intensity:e.target.value}))} placeholder="Intensity" style={s}/>
+              <input value={newEx.calories} onChange={e=>setNewEx(p=>({...p,calories:e.target.value}))} placeholder="Calories burned" type="number" style={s}/>
+              <input value={newEx.notes} onChange={e=>setNewEx(p=>({...p,notes:e.target.value}))} placeholder="Notes" style={s}/>
+            </div>
+          ) : (
+            <>
+              {newSets.map((set,i) => (
+                <div key={i} style={{display:'grid',gridTemplateColumns:'30px 1fr 1fr 30px',gap:5,marginBottom:5,alignItems:'center'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#333',textAlign:'center'}}>{i+1}</div>
+                  <input value={set.weight} onChange={e=>setNewSets(prev=>prev.map((s2,j)=>j===i?{...s2,weight:e.target.value}:s2))} placeholder="Weight" style={s}/>
+                  <input value={set.reps} onChange={e=>setNewSets(prev=>prev.map((s2,j)=>j===i?{...s2,reps:e.target.value}:s2))} placeholder="Reps" type="number" style={s}/>
+                  <button onClick={()=>setNewSets(prev=>prev.filter((_,j)=>j!==i))} style={{background:'none',border:'none',color:'#333',cursor:'pointer',fontSize:14}}>x</button>
+                </div>
+              ))}
+              <button onClick={()=>setNewSets(p=>[...p,{weight:'',reps:''}])} style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:5,color:'#444',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'4px 10px',cursor:'pointer',marginBottom:7}}>+ add set</button>
+            </>
+          )}
+          <div style={{display:'flex',gap:7}}>
+            <button onClick={()=>setAddingExercise(false)} style={{flex:1,padding:8,background:'transparent',border:'1px solid #1e1e1e',borderRadius:7,color:'#444',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>CANCEL</button>
+            <button onClick={addExercise} disabled={!newEx.name} style={{flex:2,padding:8,background:newEx.name?'#e8ff47':'#141414',border:'none',borderRadius:7,color:'#080808',fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:1.5,cursor:newEx.name?'pointer':'default'}}>ADD EXERCISE</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:'flex',gap:7,marginTop:4}}>
+        <button onClick={()=>setAddingExercise(true)} style={{flex:2,padding:10,background:'#0c0c0c',border:'1px solid #1e1e1e',borderRadius:9,color:'#444',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>+ ADD EXERCISE</button>
+        {session && session.exercises.length > 0 && (
+          <button onClick={runAnalysis} disabled={analyzing} style={{flex:1,padding:10,background:analyzing?'#0c0c0c':'#0a1a0a',border:`1px solid ${analyzing?'#1e1e1e':'#1a3a1a'}`,borderRadius:9,color:analyzing?'#333':'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:analyzing?'default':'pointer'}}>
+            {analyzing?'ANALYZING...':session?.analysis?'RE-GRADE':'GRADE'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Trends Tab ────────────────────────────────────────────────────────────
+function TrendsTab({ foods, sessions }: { foods:FoodItem[]; sessions:WorkoutSession[] }) {
+  const dailyTotals = WEEK.map(date => {
+    const df = foods.filter(f=>f.logged_date===date)
+    return { date, calories: df.reduce((s,f)=>s+f.calories,0), protein: df.reduce((s,f)=>s+(+f.protein||0),0), logged: df.length>0 }
+  })
+  const avgCal = Math.round(dailyTotals.filter(d=>d.logged).reduce((s,d)=>s+d.calories,0) / Math.max(dailyTotals.filter(d=>d.logged).length,1))
+  const avgPro = Math.round(dailyTotals.filter(d=>d.logged).reduce((s,d)=>s+d.protein,0) / Math.max(dailyTotals.filter(d=>d.logged).length,1))
+  const sessionsWithRating = sessions.filter(s=>s.rating)
+  const avgRating = sessionsWithRating.length > 0 ? (sessionsWithRating.reduce((s,w)=>s+(w.rating||0),0)/sessionsWithRating.length).toFixed(1) : '—'
+
+  return (
+    <div style={{padding:'0 14px 40px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
+        {[['AVG CALORIES',String(avgCal),'#e8ff47'],['AVG PROTEIN',`${avgPro}g`,'#47c8ff'],['SESSIONS',String(sessions.length),'#4aff7a'],['AVG GRADE',String(avgRating),'#ff9f47']].map(([l,v,c])=>(
+          <div key={l} style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:10,padding:'12px 14px'}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:c,lineHeight:1}}>{v}</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1,marginTop:3}}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Daily cal chart */}
+      <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:11,padding:'12px 14px',marginBottom:10}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',letterSpacing:1.5,marginBottom:10}}>CALORIES · 7 DAYS</div>
+        <div style={{display:'flex',alignItems:'flex-end',gap:5,height:60}}>
+          {dailyTotals.map(d => {
+            const h = d.calories > 0 ? Math.max((d.calories/MACRO_GOAL.calories)*60, 4) : 4
+            const over = d.calories > MACRO_GOAL.calories
+            return (
+              <div key={d.date} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3}}>
+                <div style={{width:'100%',height:h,background:d.logged?(over?'#ff6b6b':'#e8ff47'):'#141414',borderRadius:2,transition:'height 0.3s'}}/>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2a2a2a'}}>{new Date(d.date+'T12:00').toLocaleDateString('en-US',{weekday:'short'}).slice(0,2)}</div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Workout sessions */}
+      <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:11,padding:'12px 14px',marginBottom:10}}>
+        <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',letterSpacing:1.5,marginBottom:10}}>WORKOUT SESSIONS · 7 DAYS</div>
+        {sessions.length === 0 ? (
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#1a1a1a'}}>No sessions logged</div>
+        ) : sessions.map(s => (
+          <div key={s.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'7px 0',borderBottom:'1px solid #0e0e0e'}}>
+            <div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,color:'#bbb',letterSpacing:1}}>{s.workout_name}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',marginTop:1}}>{new Date(s.logged_date+'T12:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})} · {s.exercises?.length||0} exercises</div>
+            </div>
+            {s.rating && <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(s.rating)}}>{s.rating}</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Smart Input Bar ───────────────────────────────────────────────────────
+function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; activeDate:string; userId:string; onRefresh:()=>void }) {
+  const [text, setText] = useState('')
+  const [parsing, setParsing] = useState(false)
+  const [photoData, setPhotoData] = useState<string|null>(null)
+  const [listening, setListening] = useState(false)
+  const [targetMeal, setTargetMeal] = useState('Breakfast')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const recogRef = useRef<any>(null)
+  const accentColor = tab === 'food' ? '#e8ff47' : '#47c8ff'
+
+  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setPhotoData((reader.result as string).split(',')[1])
+    reader.readAsDataURL(file)
+  }
+
+  const toggleVoice = () => {
+    const SR = (window as any).SpeechRecognition||(window as any).webkitSpeechRecognition
+    if (!SR) return
+    if (listening) { recogRef.current?.stop(); setListening(false); return }
+    const r = new SR(); r.continuous=false; r.interimResults=false; r.lang='en-US'
+    r.onresult = (e: any) => { setText(prev => prev + ' ' + e.results[0][0].transcript); setListening(false) }
+    r.onerror = () => setListening(false)
+    r.onend = () => setListening(false)
+    recogRef.current = r; r.start(); setListening(true)
+  }
+
+  const parse = async () => {
+    if (!text.trim() && !photoData) return
+    setParsing(true)
+    try {
+      if (tab === 'food') {
+        const res = await fetch('/api/parse-food', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ text, photo: photoData, meal: targetMeal })
+        })
+        const data = await res.json()
+        const items = data.items || []
+        for (const item of items) {
+          await supabase.from('food_logs').insert({ user_id:userId, logged_date:activeDate, meal:targetMeal, name:item.name, calories:item.calories, protein:item.protein||0, carbs:item.carbs||0, fat:item.fat||0 })
+        }
+      } else {
+        const res = await fetch('/api/parse-workout', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ text, photo: photoData })
+        })
+        const data = await res.json()
+        // Get or create session - avoid .single() which throws on no rows
+        let sessionId: string|null = null
+        const { data: existing } = await supabase.from('workout_sessions').select('id').eq('user_id',userId).eq('logged_date',activeDate)
+        if (existing && existing.length > 0) {
+          sessionId = existing[0].id
+          // Update name and cals if AI detected them
+          await supabase.from('workout_sessions').update({ workout_name: data.workoutName||'Workout', cals_burned: data.calsBurned||0 }).eq('id', sessionId)
         } else {
-          await supabase.auth.signOut()
-          setCheckingSession(false)
+          const { data: newSession } = await supabase.from('workout_sessions').insert({ user_id:userId, logged_date:activeDate, workout_name:data.workoutName||'Workout', cals_burned:data.calsBurned||0 }).select('id')
+          sessionId = newSession?.[0]?.id || null
+        }
+        if (sessionId && data.exercises && data.exercises.length > 0) {
+          for (const ex of data.exercises) {
+            const aType = getActivityType(ex.name)
+            const isCardio = isCardioType(aType)
+            let setsData = ex.sets || []
+            if (isCardio && (!setsData.length || setsData[0]?.weight !== undefined)) {
+              setsData = [{ duration: ex.duration||null, intensity: ex.intensity||null, calories: ex.calories||null, notes: ex.notes||null }]
+            }
+            await supabase.from('exercises').insert({ session_id:sessionId, user_id:userId, name:ex.name, type:isCardio?aType:'strength', sets:setsData })
+          }
         }
       }
-    })
-    return () => subscription.unsubscribe()
-  }, [])
+      onRefresh()
+      setText(''); setPhotoData(null)
+    } catch {}
+    setParsing(false)
+  }
 
-  const handleEmail = async () => {
-    if (!email || !password) return
-    setLoading(true)
-    setMessage(null)
-    if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { full_name: name } }
-      })
-      if (error) setMessage({ text: error.message, ok: false })
-      else setMessage({ text: 'Account created! Signing you in...', ok: true })
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setMessage({ text: error.message === 'Invalid login credentials' ? 'Incorrect email or password.' : error.message, ok: false })
-      }
-      // success handled by onAuthStateChange → redirect
-    }
+  return (
+    <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:'#080808',borderTop:'1px solid #0f0f0f',padding:'8px 10px 12px',zIndex:50}}>
+      {tab === 'food' && (
+        <div style={{display:'flex',gap:4,marginBottom:6,overflowX:'auto'}}>
+          {MEAL_SLOTS.map(m=>(
+            <button key={m} onClick={()=>setTargetMeal(m)} style={{padding:'3px 10px',background:targetMeal===m?'#e8ff4718':'transparent',border:`1px solid ${targetMeal===m?'#e8ff4744':'#141414'}`,borderRadius:5,color:targetMeal===m?'#e8ff47':'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer',whiteSpace:'nowrap',letterSpacing:0.5}}>
+              {m.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
+      {photoData && (
+        <div style={{marginBottom:6,display:'flex',alignItems:'center',gap:7}}>
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#c447ff'}}>📷 Photo ready</div>
+          <button onClick={()=>setPhotoData(null)} style={{background:'none',border:'none',color:'#444',cursor:'pointer',fontSize:12}}>x</button>
+        </div>
+      )}
+      <div style={{display:'flex',gap:6,alignItems:'center'}}>
+        <input
+          value={text} onChange={e=>setText(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&parse()}
+          placeholder={tab==='food'?'Log food with AI...':'Log workout with AI...'}
+          style={{flex:1,background:'#0c0c0c',border:'1px solid #181818',borderRadius:10,padding:'10px 12px',color:'#ccc',fontFamily:"'DM Mono',monospace",fontSize:12,outline:'none'}}
+        />
+        <button onClick={toggleVoice} style={{width:40,height:40,background:listening?'#0a1a0a':'#0c0c0c',border:`1px solid ${listening?'#4aff7a':'#1e1e1e'}`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+          <span style={{fontSize:16}}>{listening?'⏹':'🎙'}</span>
+        </button>
+        <button onClick={()=>fileRef.current?.click()} style={{width:40,height:40,background:photoData?'#1a0a1a':'#0c0c0c',border:`1px solid ${photoData?'#c447ff':'#1e1e1e'}`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+          <span style={{fontSize:16}}>📷</span>
+        </button>
+        <button onClick={parse} disabled={(!text.trim()&&!photoData)||parsing} style={{width:40,height:40,background:(!text.trim()&&!photoData)||parsing?'#111':accentColor,border:'none',borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',cursor:(!text.trim()&&!photoData)||parsing?'default':'pointer',flexShrink:0}}>
+          {parsing
+            ? <div style={{width:14,height:14,border:'2px solid #333',borderTop:'2px solid #080808',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
+            : <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#080808',letterSpacing:1}}>LOG</span>}
+        </button>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{display:'none'}}/>
+    </div>
+  )
+}
+
+// ── Profile Tab ───────────────────────────────────────────────────────────
+function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; macroGoal: typeof MACRO_GOAL; onMacrosUpdated: (m: typeof MACRO_GOAL) => void }) {
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<any>({})
+  const [recalcPreview, setRecalcPreview] = useState<any>(null)
+  const [weightLogs, setWeightLogs] = useState<any[]>([])
+  const [checkInWeight, setCheckInWeight] = useState('')
+  const [checkInNotes, setCheckInNotes] = useState('')
+  const [checkInSaving, setCheckInSaving] = useState(false)
+  const [section, setSection] = useState<'overview'|'checkin'|'edit'>('overview')
+
+  const loadData = async () => {
+    const [{ data: prof }, { data: wl }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      supabase.from('weight_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
+    ])
+    setProfile(prof || {})
+    setForm(prof || {})
+    setWeightLogs(wl || [])
     setLoading(false)
   }
 
-  const handleGoogle = async () => {
-    setGoogleLoading(true)
-    setMessage(null)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
-    })
-    if (error) { setMessage({ text: error.message, ok: false }); setGoogleLoading(false) }
+  useEffect(() => { loadData() }, [userId])
+
+  const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
+
+  const previewMacros = () => {
+    const heightIn = +(form.height_in || 0)
+    const age = +(form.age || 0)
+    const weightLb = +(form.weight_lb || 0)
+    const missing: string[] = []
+    if (!age) missing.push('age')
+    if (!weightLb) missing.push('weight')
+    if (!heightIn) missing.push('height')
+    if (!form.goal_type) missing.push('goal')
+    if (!form.pace) missing.push('pace')
+    if (missing.length > 0) { alert('Please fill in: ' + missing.join(', ')); return }
+    const m = calculateMacros({ age, heightIn, weightLb, goalType: form.goal_type, pace: form.pace })
+    setRecalcPreview(m)
   }
 
-  const handleForgotPassword = async () => {
-    if (!email) { setMessage({ text: 'Enter your email above first.', ok: false }); return }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset`
-    })
-    if (error) setMessage({ text: error.message, ok: false })
-    else setMessage({ text: 'Password reset link sent — check your email.', ok: true })
+  const saveProfile = async () => {
+    setSaving(true)
+    const updates: any = { ...form }
+    if (recalcPreview) {
+      updates.macro_calories = recalcPreview.calories
+      updates.macro_protein = recalcPreview.protein
+      updates.macro_carbs = recalcPreview.carbs
+      updates.macro_fat = recalcPreview.fat
+      updates.tdee = recalcPreview.tdee
+    }
+    await supabase.from('profiles').upsert({ id: userId, ...updates })
+    setProfile(updates)
+    if (recalcPreview) onMacrosUpdated({ calories: recalcPreview.calories, protein: recalcPreview.protein, carbs: recalcPreview.carbs, fat: recalcPreview.fat })
+    setRecalcPreview(null)
+    setEditing(false)
+    setSection('overview')
+    setSaving(false)
   }
 
-  const inp: React.CSSProperties = {
-    width: '100%', background: '#0a0a0a', border: '1px solid #222',
-    borderRadius: 8, padding: '13px 14px', color: '#ccc',
-    fontFamily: "'DM Mono', monospace", fontSize: 13, outline: 'none',
-    boxSizing: 'border-box', transition: 'border-color 0.2s'
+  const saveCheckIn = async () => {
+    if (!checkInWeight) return
+    setCheckInSaving(true)
+    const today = todayKey()
+    const { error } = await supabase.from('weight_logs').insert(
+      { user_id: userId, logged_date: today, weight_lb: +checkInWeight, notes: checkInNotes || null }
+    )
+    if (error) { console.error('weight_logs upsert error:', error); alert('Save failed: ' + error.message); setCheckInSaving(false); return }
+    await supabase.from('profiles').update({ weight_lb: +checkInWeight }).eq('id', userId)
+    setProfile((p: any) => ({ ...p, weight_lb: +checkInWeight }))
+    await loadData()
+    setCheckInNotes('')
+    setCheckInSaving(false)
   }
 
-  if (checkingSession) return (
-    <div style={{ background: '#080808', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 20, height: 20, border: '2px solid #1e1e1e', borderTop: '2px solid #e8ff47', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+  const deleteWeightLog = async (id: string) => {
+    await supabase.from('weight_logs').delete().eq('id', id)
+    await loadData()
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: '#0a0a0a', border: '1px solid #222', borderRadius: 7,
+    padding: '10px 12px', color: '#ccc', fontFamily: "'DM Mono',monospace",
+    fontSize: 12, outline: 'none', width: '100%', boxSizing: 'border-box'
+  }
+  const optBtn = (active: boolean, color: string): React.CSSProperties => ({
+    flex: 1, padding: '9px 4px', background: active ? color + '18' : 'transparent',
+    border: `1px solid ${active ? color : '#1a1a1a'}`, borderRadius: 7,
+    color: active ? color : '#2a2a2a', cursor: 'pointer',
+    fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 0.5
+  })
+
+  const goalLabels: Record<string,string> = { lose_fat: 'LOSE FAT', gain_muscle: 'BUILD MUSCLE', recomp: 'RECOMP' }
+  const paceLabels: Record<string,string> = { conservative: 'STEADY', standard: 'BALANCED', aggressive: 'AGGRESSIVE' }
+  const goalColors: Record<string,string> = { lose_fat: '#ff9f47', gain_muscle: '#47c8ff', recomp: '#e8ff47' }
+  const paceColors: Record<string,string> = { conservative: '#4aff7a', standard: '#e8ff47', aggressive: '#ff6b6b' }
+
+  const displayMacros = recalcPreview || { calories: profile?.macro_calories, protein: profile?.macro_protein, carbs: profile?.macro_carbs, fat: profile?.macro_fat }
+
+  // Weight trend calc — cast all weights to numbers (Supabase returns numeric as string)
+  const sortedLogs = [...weightLogs].sort((a,b) => a.logged_date.localeCompare(b.logged_date))
+  const firstWeight = sortedLogs[0] ? +sortedLogs[0].weight_lb : null
+  const latestWeight = sortedLogs[sortedLogs.length-1] ? +sortedLogs[sortedLogs.length-1].weight_lb : null
+  const totalChange = firstWeight !== null && latestWeight !== null && sortedLogs.length > 1 ? +(latestWeight - firstWeight).toFixed(1) : null
+  const targetWeight = profile?.target_weight_lb ? +profile.target_weight_lb : null
+  const toGoal = latestWeight !== null && targetWeight ? +(latestWeight - targetWeight).toFixed(1) : null
+  const todayStr = todayKey()
+  const todayCheckedIn = weightLogs.length > 0 && weightLogs[0]?.logged_date === todayStr
+
+  // Goal status logic
+  const goalAchieved = (() => {
+    if (!targetWeight || !latestWeight) return false
+    const gt = profile?.goal_type
+    if (gt === 'lose_fat') return latestWeight <= targetWeight
+    if (gt === 'gain_muscle') return latestWeight >= targetWeight
+    if (gt === 'recomp') return Math.abs(latestWeight - targetWeight) <= 1
+    return false
+  })()
+
+  const goalAlert = (() => {
+    if (!targetWeight || !latestWeight || !firstWeight) return null
+    const gt = profile?.goal_type
+    const overshoot = 3 // lb past goal to trigger alert
+    const undershoot = 5 // lb short of goal but going wrong way
+    if (gt === 'lose_fat') {
+      if (latestWeight < targetWeight - overshoot) return { type: 'over', msg: `You're ${(targetWeight - latestWeight).toFixed(1)} lb below your goal. Consider updating your target or macros.` }
+      if (latestWeight > firstWeight + undershoot) return { type: 'under', msg: `Weight is trending up ${(latestWeight - firstWeight).toFixed(1)} lb from start. Check your nutrition targets.` }
+    }
+    if (gt === 'gain_muscle') {
+      if (latestWeight > targetWeight + overshoot) return { type: 'over', msg: `You're ${(latestWeight - targetWeight).toFixed(1)} lb above your goal. Consider updating your target or macros.` }
+      if (latestWeight < firstWeight - undershoot) return { type: 'under', msg: `Weight is trending down ${(firstWeight - latestWeight).toFixed(1)} lb from start. Check your nutrition targets.` }
+    }
+    return null
+  })()
+
+  const [alertDismissed, setAlertDismissed] = useState<string|null>(null)
+  const showAlert = goalAlert && alertDismissed !== goalAlert.msg
+
+  // Pre-fill check-in weight with today's entry if already logged
+  useEffect(() => {
+    const todayLog = weightLogs.find((w:any) => w.logged_date === todayStr)
+    if (todayLog) setCheckInWeight(String(parseFloat(todayLog.weight_lb)))
+    else setCheckInWeight('')
+  }, [weightLogs])
+
+  // Mini sparkline — last 14 days
+  const spark = sortedLogs.slice(-14)
+  const sparkMin = spark.length ? Math.min(...spark.map((s:any) => s.weight_lb)) - 2 : 0
+  const sparkMax = spark.length ? Math.max(...spark.map((s:any) => s.weight_lb)) + 2 : 1
+  const sparkW = 260, sparkH = 48
+  const toX = (i: number) => (i / Math.max(spark.length - 1, 1)) * sparkW
+  const toY = (w: number) => sparkH - ((w - sparkMin) / (sparkMax - sparkMin)) * sparkH
+  const sparkPath = spark.map((s:any, i:number) => `${i===0?'M':'L'}${toX(i).toFixed(1)},${toY(s.weight_lb).toFixed(1)}`).join(' ')
+
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+      <div style={{ width: 18, height: 18, border: '2px solid #1e1e1e', borderTop: '2px solid #e8ff47', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
     </div>
   )
 
   return (
-    <div style={{ background: '#080808', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+    <div style={{ padding: '0 14px 100px' }}>
+
+      {/* Section toggle */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+        {([['overview','OVERVIEW'],['edit','EDIT GOALS']] as const).map(([k,l]) => (
+          <button key={k} onClick={() => setSection(k)} style={{ flex:1, padding: '8px 4px', background: section===k ? '#e8ff4710' : 'transparent', border: `1px solid ${section===k ? '#e8ff4744' : '#1a1a1a'}`, borderRadius: 7, color: section===k ? '#e8ff47' : '#2a2a2a', fontFamily: "'DM Mono',monospace", fontSize: 8, letterSpacing: 0.5, cursor: 'pointer' }}>{l}</button>
+        ))}
+      </div>
+
+      {/* ── OVERVIEW ── */}
+      {section === 'overview' && (
+        <>
+          {/* Macro targets */}
+          <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>DAILY TARGETS</div>
+              {profile?.tdee && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a' }}>TDEE {profile.tdee} kcal · {Math.abs((profile.macro_calories||0) - profile.tdee)} cal {profile.macro_calories < profile.tdee ? 'deficit' : 'surplus'}</div>}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+              {([['CAL', displayMacros?.calories, '#e8ff47'], ['PRO', displayMacros?.protein ? displayMacros.protein + 'g' : '—', '#47c8ff'], ['CARB', displayMacros?.carbs ? displayMacros.carbs + 'g' : '—', '#ff9f47'], ['FAT', displayMacros?.fat ? displayMacros.fat + 'g' : '—', '#c447ff']] as const).map(([l, v, c]) => (
+                <div key={l} style={{ background: '#080808', border: `1px solid ${c}22`, borderRadius: 10, padding: '12px 6px', textAlign: 'center' }}>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: c, lineHeight: 1 }}>{v||'—'}</div>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#252525', letterSpacing: 1, marginTop: 3 }}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Stats — START / CURRENT / GOAL progress strip */}
+          <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>PROGRESS</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: goalColors[profile.goal_type] || '#333' }}>{goalLabels[profile.goal_type] || '—'} · {paceLabels[profile.pace] || '—'}</div>
+            </div>
+
+            {/* Three-column weight strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
+              {/* START */}
+              <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#252525', letterSpacing: 1, marginBottom: 4 }}>START</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: '#444', lineHeight: 1 }}>
+                  {firstWeight ?? (profile.weight_lb ? parseFloat(profile.weight_lb) : null) ?? '—'}
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e', marginTop: 2 }}>lb</div>
+              </div>
+              {/* CURRENT */}
+              <div style={{ background: '#080808', border: '1px solid #47c8ff33', borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#47c8ff66', letterSpacing: 1, marginBottom: 4 }}>NOW</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: '#47c8ff', lineHeight: 1 }}>
+                  {latestWeight ?? (profile.weight_lb ? parseFloat(profile.weight_lb) : null) ?? '—'}
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#47c8ff44', marginTop: 2 }}>
+                  {totalChange !== null && totalChange !== 0 ? `${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)} lb` : 'lb'}
+                </div>
+              </div>
+              {/* GOAL */}
+              <div style={{ background: '#080808', border: `1px solid ${targetWeight ? '#4aff7a33' : '#111'}`, borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#4aff7a66' : '#252525', letterSpacing: 1, marginBottom: 4 }}>GOAL</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: targetWeight ? '#4aff7a' : '#333', lineHeight: 1 }}>
+                  {targetWeight ?? '—'}
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#4aff7a44' : '#1e1e1e', marginTop: 2 }}>
+                  {toGoal !== null ? `${Math.abs(toGoal).toFixed(1)} to go` : 'lb'}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress bar start → goal */}
+            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (() => {
+              const totalDist = Math.abs(firstWeight - targetWeight)
+              const goingRight = profile?.goal_type === 'gain_muscle' ? latestWeight >= firstWeight : latestWeight <= firstWeight
+              const traveled = goingRight ? Math.abs(firstWeight - latestWeight) : 0
+              const pct = Math.min(100, (traveled / totalDist) * 100)
+              return (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ height: 4, background: '#111', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
+                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#4aff7a' : 'linear-gradient(90deg, #47c8ff, #4aff7a)', width: `${pct.toFixed(0)}%`, transition: 'width 0.4s' }}/>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222' }}>
+                    <span>{firstWeight} lb</span>
+                    <span style={{ color: goalAchieved ? '#4aff7a' : '#555' }}>{goalAchieved ? '✓ GOAL HIT' : pct.toFixed(0) + '% there'}</span>
+                    <span>{targetWeight} lb</span>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Secondary stats row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+              {[
+                ['NAME', profile.full_name || '—'],
+                ['AGE', profile.age ? profile.age + ' yrs' : '—'],
+                ['HEIGHT', profile.height_in ? `${Math.floor(profile.height_in/12)}′${profile.height_in%12}″` : '—'],
+              ].map(([l, v]) => (
+                <div key={String(l)} style={{ background: '#080808', borderRadius: 8, padding: '8px 10px', textAlign: 'center' as const }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e', letterSpacing: 1, marginBottom: 2 }}>{l}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: '#444', fontWeight: 600 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── GOAL ACHIEVED BADGE ── */}
+          {goalAchieved && (
+            <div style={{ background: 'linear-gradient(135deg, #0a1a0a, #0c0c0c)', border: '1px solid #4aff7a55', borderRadius: 14, padding: '20px', marginBottom: 10, textAlign: 'center' as const }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🏆</div>
+              <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, color: '#4aff7a', letterSpacing: 3, marginBottom: 4 }}>GOAL ACHIEVED</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a4a2a', marginBottom: 12 }}>
+                {profile.full_name ? profile.full_name.split(' ')[0] + ', you' : 'You'} hit {targetWeight} lb — {firstWeight && latestWeight ? Math.abs(firstWeight - latestWeight).toFixed(1) + ' lb ' + (latestWeight < firstWeight ? 'lost' : 'gained') + ' from ' + firstWeight + ' lb' : 'goal reached'}
+              </div>
+              <button onClick={() => setSection('edit')} style={{ background: '#4aff7a22', border: '1px solid #4aff7a44', borderRadius: 8, color: '#4aff7a', fontFamily: "'DM Mono',monospace", fontSize: 9, padding: '8px 18px', cursor: 'pointer', letterSpacing: 1 }}>SET NEW GOAL →</button>
+            </div>
+          )}
+
+          {/* ── GOAL ALERT ── */}
+          {showAlert && (
+            <div style={{ background: goalAlert!.type === 'over' ? '#1a0a0a' : '#1a1a0a', border: `1px solid ${goalAlert!.type === 'over' ? '#ff6b6b44' : '#e8ff4744'}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ fontSize: 16, lineHeight: 1, marginTop: 1 }}>{goalAlert!.type === 'over' ? '⚠️' : '📉'}</div>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: goalAlert!.type === 'over' ? '#ff6b6b' : '#e8ff47', letterSpacing: 1, marginBottom: 4 }}>HEADS UP</div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: '#555', lineHeight: 1.5 }}>{goalAlert!.msg}</div>
+                  </div>
+                </div>
+                <button onClick={() => setAlertDismissed(goalAlert!.msg)} style={{ background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
+              </div>
+            </div>
+          )}
+
+          {/* Weight log card — inline entry + full history */}
+          <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>WEIGHT LOG</div>
+              {totalChange !== null && (
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: totalChange < 0 ? '#4aff7a' : totalChange > 0 ? '#ff6b6b' : '#555', letterSpacing: 1 }}>
+                  {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)} lb total
+                </div>
+              )}
+            </div>
+
+            {/* Sparkline */}
+            {sortedLogs.length > 1 && (
+              <svg width="100%" height={40} viewBox={`0 0 ${sparkW} ${sparkH}`} preserveAspectRatio="none" style={{ display: 'block', marginBottom: 10 }}>
+                {targetWeight && <line x1={0} y1={toY(targetWeight)} x2={sparkW} y2={toY(targetWeight)} stroke="#e8ff4722" strokeWidth={1} strokeDasharray="4,4"/>}
+                <path d={sparkPath} fill="none" stroke="#47c8ff" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+                {spark.map((s:any, i:number) => <circle key={i} cx={toX(i)} cy={toY(s.weight_lb)} r={2} fill="#47c8ff"/>)}
+              </svg>
+            )}
+
+            {/* Progress bar */}
+            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (() => {
+              const goingRight = profile?.goal_type === 'gain_muscle' ? latestWeight >= firstWeight : latestWeight <= firstWeight
+              const pct = Math.min(100, goingRight ? Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100 : 0)
+              return (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ height: 3, background: '#141414', borderRadius: 2, overflow: 'hidden', marginBottom: 3 }}>
+                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#4aff7a' : '#47c8ff', width: `${pct.toFixed(0)}%` }}/>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e' }}>
+                    <span>{firstWeight} lb start</span>
+                    <span>{goalAchieved ? '✓ done' : pct.toFixed(0) + '% to ' + targetWeight + ' lb'}</span>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* Quick log row */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: weightLogs.length > 0 ? 14 : 0, paddingBottom: weightLogs.length > 0 ? 14 : 0, borderBottom: weightLogs.length > 0 ? '1px solid #111' : 'none' }}>
+              <input
+                value={checkInWeight}
+                onChange={e => setCheckInWeight(e.target.value)}
+                placeholder={todayCheckedIn ? String(latestWeight) : latestWeight ? `last: ${latestWeight}` : 'weight (lb)'}
+                type="number" step="0.1"
+                style={{ ...inputStyle, flex: 1, padding: '9px 12px' }}
+              />
+              <button onClick={saveCheckIn} disabled={!checkInWeight || checkInSaving}
+                style={{ padding: '9px 16px', background: !checkInWeight || checkInSaving ? '#141414' : todayCheckedIn ? '#2a3a2a' : '#e8ff47', border: 'none', borderRadius: 7, color: !checkInWeight || checkInSaving ? '#333' : todayCheckedIn ? '#4aff7a' : '#080808', fontFamily: "'DM Mono',monospace", fontSize: 9, letterSpacing: 1, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer', whiteSpace: 'nowrap' as const }}>
+                {checkInSaving ? '...' : todayCheckedIn ? '✓ UPDATE' : 'LOG'}
+              </button>
+            </div>
+
+            {/* History rows — running tally, newest first */}
+            {weightLogs.length === 0 && (
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', textAlign: 'center' as const, padding: '12px 0' }}>No entries yet — log your first weight above</div>
+            )}
+            {weightLogs.length > 0 && (() => {
+              const startWt = parseFloat(weightLogs[weightLogs.length - 1]?.weight_lb)
+              const visible = weightLogs
+              return (
+                <>
+                  {/* Column headers */}
+                  <div style={{ display: 'flex', gap: 8, paddingBottom: 6, marginBottom: 2, borderBottom: '1px solid #111' }}>
+                    <div style={{ flex: 1, fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222', letterSpacing: 1 }}>DATE</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222', letterSpacing: 1, minWidth: 48, textAlign: 'right' as const }}>WEIGHT</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222', letterSpacing: 1, minWidth: 40, textAlign: 'right' as const }}>CHANGE</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222', letterSpacing: 1, minWidth: 44, textAlign: 'right' as const }}>TOTAL</div>
+                    <div style={{ width: 16 }}/>
+                  </div>
+                  {visible.map((w: any, i: number) => {
+                    const idx = weightLogs.indexOf(w)
+                    const prev = weightLogs[idx + 1]
+                    const wt = parseFloat(w.weight_lb)
+                    const delta = prev ? parseFloat((wt - parseFloat(prev.weight_lb)).toFixed(1)) : null
+                    const cumulative = weightLogs.length > 1 ? parseFloat((wt - startWt).toFixed(1)) : null
+                    const isStart = idx === weightLogs.length - 1
+                    const isToday = w.logged_date === todayStr
+                    return (
+                      <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 0', borderBottom: i < visible.length - 1 ? '1px solid #0a0a0a' : 'none', gap: 8 }}>
+                        <div style={{ flex: 1, fontFamily: "'DM Mono',monospace", fontSize: 9, color: isToday ? '#888' : '#333' }}>
+                          {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {isToday && <span style={{ color: '#e8ff4799', marginLeft: 4 }}>·today</span>}
+                          {isStart && !isToday && <span style={{ color: '#444', marginLeft: 4 }}>·start</span>}
+                        </div>
+                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 15, color: isToday ? '#bbb' : '#555', minWidth: 48, textAlign: 'right' as const }}>
+                          {wt}<span style={{ fontSize: 8, color: '#252525' }}> lb</span>
+                        </div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 40, textAlign: 'right' as const, color: delta === null ? '#1a1a1a' : delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#444' }}>
+                          {delta === null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`}
+                        </div>
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 44, textAlign: 'right' as const, color: cumulative === null || isStart ? '#1a1a1a' : cumulative < 0 ? '#4aff7a' : cumulative > 0 ? '#ff6b6b' : '#444' }}>
+                          {cumulative === null || isStart ? '—' : `${cumulative > 0 ? '+' : ''}${cumulative.toFixed(1)}`}
+                        </div>
+                        <button onClick={() => deleteWeightLog(w.id)} style={{ background: 'none', border: 'none', color: '#1e1e1e', cursor: 'pointer', fontSize: 13, padding: '0 2px', lineHeight: 1, width: 16 }}>×</button>
+                      </div>
+                    )
+                  })}
+
+                </>
+              )
+            })()}
+          </div>
+        </>
+      )}
+
+      {/* ── EDIT GOALS ── */}
+      {section === 'edit' && (
+        <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 12 }}>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 14 }}>EDIT PROFILE & GOALS</div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+            <input value={form.full_name || ''} onChange={e => set('full_name', e.target.value)} placeholder="Name" style={inputStyle}/>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input value={form.age || ''} onChange={e => set('age', e.target.value)} placeholder="Age" type="number" style={inputStyle}/>
+              <input value={form.weight_lb || ''} onChange={e => set('weight_lb', e.target.value)} placeholder="Weight (lb)" type="number" style={inputStyle}/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <input value={form.height_in ? Math.floor(form.height_in/12) : ''} onChange={e => set('height_in', +e.target.value * 12 + ((form.height_in||0) % 12))} placeholder="Height ft" type="number" style={inputStyle}/>
+              <input value={form.height_in ? form.height_in % 12 : ''} onChange={e => set('height_in', Math.floor((form.height_in||0)/12)*12 + +e.target.value)} placeholder="Height in" type="number" style={inputStyle}/>
+            </div>
+            <input value={form.target_weight_lb || ''} onChange={e => set('target_weight_lb', e.target.value)} placeholder="Target weight (lb)" type="number" style={inputStyle}/>
+          </div>
+
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>GOAL</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {[['lose_fat','LOSE FAT','#ff9f47'],['gain_muscle','BUILD','#47c8ff'],['recomp','RECOMP','#e8ff47']].map(([k,l,c]) => (
+              <button key={k} onClick={() => set('goal_type', k)} style={optBtn(form.goal_type===k, c)}>{l}</button>
+            ))}
+          </div>
+
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>PACE</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {[['conservative','STEADY','#4aff7a'],['standard','BALANCED','#e8ff47'],['aggressive','AGGRESSIVE','#ff6b6b']].map(([k,l,c]) => (
+              <button key={k} onClick={() => set('pace', k)} style={optBtn(form.pace===k, c)}>{l}</button>
+            ))}
+          </div>
+
+          <button onClick={previewMacros} style={{ width: '100%', padding: '11px', background: 'transparent', border: '1px solid #333', borderRadius: 8, color: '#888', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer', marginBottom: recalcPreview ? 8 : 14, letterSpacing: 1 }}>↻ RECALCULATE MACROS</button>
+
+          {recalcPreview && (
+            <div style={{ background: '#080808', border: '1px solid #1a3a1a', borderRadius: 10, padding: '12px', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a3a2a', letterSpacing: 1, marginBottom: 8 }}>NEW TARGETS PREVIEW</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6 }}>
+                {[['CAL',recalcPreview.calories,'#e8ff47'],['PRO',recalcPreview.protein+'g','#47c8ff'],['CARB',recalcPreview.carbs+'g','#ff9f47'],['FAT',recalcPreview.fat+'g','#c447ff']].map(([l,v,c])=>(
+                  <div key={String(l)} style={{ textAlign: 'center', padding: '6px 0' }}>
+                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: String(c), lineHeight: 1 }}>{v}</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', marginTop: 2 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { setSection('overview'); setRecalcPreview(null) }} style={{ flex: 1, padding: '12px', background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 8, color: '#333', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer' }}>CANCEL</button>
+            <button onClick={saveProfile} disabled={saving} style={{ flex: 2, padding: '12px', background: saving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 8, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 14, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>{saving ? 'SAVING...' : 'SAVE'}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+const STEP_LABELS = ['About You', 'Your Goal', 'Pace', 'Your Plan']
+
+function calculateMacros(profile: any) {
+  const { age, heightIn, weightLb, goalType, pace } = profile
+  // BMR via Mifflin-St Jeor
+  const heightCm = heightIn * 2.54
+  const weightKg = weightLb * 0.453592
+  const bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5 // male
+  // Activity multiplier (training 5-7x/week = very active)
+  const tdee = Math.round(bmr * 1.725)
+
+  // Calorie adjustment by goal + pace
+  const paceAdj: Record<string,number> = { aggressive: -600, standard: -400, conservative: -200 }
+  const gainAdj: Record<string,number> = { aggressive: 400, standard: 250, conservative: 150 }
+
+  let calories = tdee
+  if (goalType === 'lose_fat') calories = tdee + (paceAdj[pace] || -400)
+  else if (goalType === 'gain_muscle') calories = tdee + (gainAdj[pace] || 250)
+  else if (goalType === 'recomp') calories = tdee + (paceAdj[pace] || -300) / 2
+
+  calories = Math.max(1400, Math.round(calories / 50) * 50)
+
+  // Protein: 1g per lb bodyweight minimum, higher for recomp
+  const protein = goalType === 'recomp' ? Math.round(weightLb * 1.1) : Math.round(weightLb * 1.0)
+  // Fat: 25% of calories
+  const fat = Math.round((calories * 0.25) / 9)
+  // Carbs: remainder
+  const carbs = Math.round((calories - protein * 4 - fat * 9) / 4)
+
+  return { calories, protein, carbs: Math.max(50, carbs), fat, tdee }
+}
+
+function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: (profile: any) => void }) {
+  const [step, setStep] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [profile, setProfile] = useState({
+    name: '', age: '', weightLb: '', heightFt: '', heightIn: '',
+    goalType: '', pace: '', targetWeightLb: ''
+  })
+
+  const set = (k: string, v: string) => setProfile(p => ({ ...p, [k]: v }))
+
+  const heightInches = parseInt(profile.heightFt||'0') * 12 + parseInt(profile.heightIn||'0')
+  const macros = step === 3 && profile.age && profile.weightLb && heightInches && profile.goalType && profile.pace
+    ? calculateMacros({ age: +profile.age, heightIn: heightInches, weightLb: +profile.weightLb, goalType: profile.goalType, pace: profile.pace })
+    : null
+
+  const canNext = [
+    profile.name && profile.age && profile.weightLb && profile.heightFt,
+    !!profile.goalType,
+    !!profile.pace,
+    !!macros
+  ][step]
+
+  const save = async () => {
+    if (!macros) return
+    setSaving(true)
+    await supabase.from('profiles').upsert({
+      id: userId,
+      full_name: profile.name,
+      age: +profile.age,
+      weight_lb: +profile.weightLb,
+      height_in: heightInches,
+      goal_type: profile.goalType,
+      pace: profile.pace,
+      target_weight_lb: +profile.targetWeightLb || null,
+      macro_calories: macros.calories,
+      macro_protein: macros.protein,
+      macro_carbs: macros.carbs,
+      macro_fat: macros.fat,
+      tdee: macros.tdee,
+    })
+    setSaving(false)
+    onComplete({ ...profile, ...macros, heightInches })
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: '#0a0a0a', border: '1px solid #222', borderRadius: 8,
+    padding: '12px 14px', color: '#ddd', fontFamily: "'DM Mono',monospace",
+    fontSize: 14, outline: 'none', width: '100%', boxSizing: 'border-box'
+  }
+  const optionStyle = (active: boolean, color: string): React.CSSProperties => ({
+    flex: 1, padding: '14px 10px', background: active ? color + '18' : '#0c0c0c',
+    border: `1px solid ${active ? color : '#1e1e1e'}`, borderRadius: 10,
+    color: active ? color : '#444', cursor: 'pointer', textAlign: 'center',
+    fontFamily: "'DM Mono',monospace", fontSize: 11, letterSpacing: 0.5, lineHeight: 1.4,
+    transition: 'all 0.15s'
+  })
+
+  const goalOptions = [
+    { key: 'lose_fat', label: 'LOSE FAT', sub: 'Reduce body fat\nwhile keeping muscle', color: '#ff9f47' },
+    { key: 'gain_muscle', label: 'BUILD MUSCLE', sub: 'Maximize muscle\ngrowth and strength', color: '#47c8ff' },
+    { key: 'recomp', label: 'RECOMP', sub: 'Lose fat and build\nmuscle simultaneously', color: '#e8ff47' },
+  ]
+  const paceOptions = [
+    { key: 'conservative', label: 'STEADY', sub: 'Slower, sustainable\nminimal sacrifice', color: '#4aff7a' },
+    { key: 'standard', label: 'BALANCED', sub: 'Proven results\nrecommended', color: '#e8ff47' },
+    { key: 'aggressive', label: 'AGGRESSIVE', sub: 'Fast results\nhigh discipline', color: '#ff6b6b' },
+  ]
+
+  return (
+    <div style={{ background: '#080808', minHeight: '100vh', color: '#eee', fontFamily: "'DM Sans',sans-serif", display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
       <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=DM+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} input:focus{border-color:#333!important}`}</style>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      <div style={{ width: '100%', maxWidth: 380 }}>
-
+      <div style={{ width: '100%', maxWidth: 420 }}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 42, letterSpacing: 5, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1 }}>RECOMP</div>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', letterSpacing: 2.5, marginTop: 4 }}>TRACK · TRAIN · TRANSFORM</div>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 36, letterSpacing: 4, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RECOMP</div>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', letterSpacing: 2, marginTop: 2 }}>BUILD YOUR PLAN</div>
         </div>
 
-        {/* Mode toggle */}
-        <div style={{ display: 'flex', background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 10, padding: 4, marginBottom: 24 }}>
-          {(['login', 'signup'] as const).map(m => (
-            <button key={m} onClick={() => { setMode(m); setMessage(null) }} style={{ flex: 1, padding: '10px', background: mode === m ? '#1a1a1a' : 'transparent', border: 'none', borderRadius: 7, color: mode === m ? '#e8ff47' : '#2a2a2a', fontFamily: "'Bebas Neue',sans-serif", fontSize: 13, letterSpacing: 2, cursor: 'pointer', transition: 'all 0.2s' }}>
-              {m === 'login' ? 'LOG IN' : 'SIGN UP'}
-            </button>
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 28 }}>
+          {STEP_LABELS.map((l, i) => (
+            <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= step ? '#e8ff47' : '#1a1a1a', transition: 'background 0.3s' }}/>
           ))}
         </div>
 
-        {/* Form */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-          {mode === 'signup' && (
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" style={inp}/>
+        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 2, marginBottom: 6 }}>STEP {step + 1} OF 4</div>
+        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, letterSpacing: 2, color: '#bbb', marginBottom: 20 }}>{STEP_LABELS[step].toUpperCase()}</div>
+
+        {/* Step 0 — About You */}
+        {step === 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <input value={profile.name} onChange={e => set('name', e.target.value)} placeholder="First name" style={inputStyle}/>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input value={profile.age} onChange={e => set('age', e.target.value)} placeholder="Age" type="number" style={inputStyle}/>
+              <input value={profile.weightLb} onChange={e => set('weightLb', e.target.value)} placeholder="Weight (lb)" type="number" style={inputStyle}/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <input value={profile.heightFt} onChange={e => set('heightFt', e.target.value)} placeholder="Height ft" type="number" style={inputStyle}/>
+              <input value={profile.heightIn} onChange={e => set('heightIn', e.target.value)} placeholder="Height in" type="number" style={inputStyle}/>
+            </div>
+            <input value={profile.targetWeightLb} onChange={e => set('targetWeightLb', e.target.value)} placeholder="Target weight (lb) — optional" type="number" style={inputStyle}/>
+          </div>
+        )}
+
+        {/* Step 1 — Goal */}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {goalOptions.map(g => (
+              <button key={g.key} onClick={() => set('goalType', g.key)} style={{ ...optionStyle(profile.goalType === g.key, g.color), display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '16px 18px' }}>
+                <div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{g.label}</div>
+                  <div style={{ fontSize: 10, color: profile.goalType === g.key ? g.color + 'cc' : '#333', marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{g.sub}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 2 — Pace */}
+        {step === 2 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {paceOptions.map(p => (
+              <button key={p.key} onClick={() => set('pace', p.key)} style={{ ...optionStyle(profile.pace === p.key, p.color), display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', padding: '16px 18px' }}>
+                <div>
+                  <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 2, lineHeight: 1 }}>{p.label}</div>
+                  <div style={{ fontSize: 10, color: profile.pace === p.key ? p.color + 'cc' : '#333', marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{p.sub}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Step 3 — Plan reveal */}
+        {step === 3 && macros && (
+          <div>
+            <div style={{ background: '#0c0c0c', border: '1px solid #1e1e1e', borderRadius: 14, padding: '20px', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 14 }}>YOUR DAILY TARGETS</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+                {[
+                  ['CALORIES', String(macros.calories), '#e8ff47'],
+                  ['PROTEIN', `${macros.protein}g`, '#47c8ff'],
+                  ['CARBS', `${macros.carbs}g`, '#ff9f47'],
+                  ['FAT', `${macros.fat}g`, '#c447ff'],
+                ].map(([l, v, c]) => (
+                  <div key={l} style={{ background: '#080808', border: `1px solid ${c}22`, borderRadius: 10, padding: '14px', textAlign: 'center' }}>
+                    <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 28, color: c, lineHeight: 1 }}>{v}</div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginTop: 4 }}>{l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: 14, padding: '10px 12px', background: '#080808', border: '1px solid #141414', borderRadius: 8 }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>TDEE (maintenance)</span>
+                  <span style={{ color: '#555' }}>{macros.tdee} cal</span>
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+                  <span>DAILY {macros.calories < macros.tdee ? 'DEFICIT' : 'SURPLUS'}</span>
+                  <span style={{ color: macros.calories < macros.tdee ? '#4aff7a' : '#ff9f47' }}>{Math.abs(macros.calories - macros.tdee)} cal</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', lineHeight: 1.7, marginBottom: 14 }}>
+              These targets are calculated from your TDEE and adjusted for your {profile.goalType === 'recomp' ? 'body recomposition' : profile.goalType === 'lose_fat' ? 'fat loss' : 'muscle building'} goal at a {profile.pace} pace. You can adjust anytime in settings.
+            </div>
+          </div>
+        )}
+
+        {/* Nav buttons */}
+        <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+          {step > 0 && (
+            <button onClick={() => setStep(s => s - 1)} style={{ flex: 1, padding: 14, background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 10, color: '#444', fontFamily: "'DM Mono',monospace", fontSize: 12, cursor: 'pointer' }}>BACK</button>
           )}
-          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" autoComplete="email" style={inp}/>
-          <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} onKeyDown={e => e.key === 'Enter' && handleEmail()} style={inp}/>
-        </div>
-
-        {/* Forgot password */}
-        {mode === 'login' && (
-          <div style={{ textAlign: 'right', marginBottom: 16 }}>
-            <button onClick={handleForgotPassword} style={{ background: 'none', border: 'none', color: '#333', fontFamily: "'DM Mono',monospace", fontSize: 10, cursor: 'pointer', letterSpacing: 0.5 }}>Forgot password?</button>
-          </div>
-        )}
-
-        {/* Message */}
-        {message && (
-          <div style={{ marginBottom: 14, padding: '10px 12px', background: message.ok ? '#0a1a0a' : '#1a0a0a', border: `1px solid ${message.ok ? '#1a3a1a' : '#3a1a1a'}`, borderRadius: 8, fontFamily: "'DM Mono',monospace", fontSize: 10, color: message.ok ? '#4aff7a' : '#ff6b6b', lineHeight: 1.5 }}>
-            {message.text}
-          </div>
-        )}
-
-        {/* Primary CTA */}
-        <button onClick={handleEmail} disabled={loading || !email || !password} style={{ width: '100%', padding: '14px', background: loading || !email || !password ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2.5, cursor: loading || !email || !password ? 'default' : 'pointer', marginBottom: 12, transition: 'background 0.2s' }}>
-          {loading ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span style={{ width: 12, height: 12, border: '2px solid #333', borderTop: '2px solid #080808', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }}/> {mode === 'login' ? 'SIGNING IN...' : 'CREATING ACCOUNT...'}</span> : mode === 'login' ? 'LOG IN' : 'CREATE ACCOUNT'}
-        </button>
-
-        {/* Divider */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{ flex: 1, height: 1, background: '#141414' }}/>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#1e1e1e' }}>OR</div>
-          <div style={{ flex: 1, height: 1, background: '#141414' }}/>
-        </div>
-
-        {/* Google */}
-        <button onClick={handleGoogle} disabled={googleLoading} style={{ width: '100%', padding: '13px', background: '#0c0c0c', border: '1px solid #1e1e1e', borderRadius: 10, color: '#888', fontFamily: "'DM Mono',monospace", fontSize: 12, cursor: googleLoading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'border-color 0.2s' }}>
-          {googleLoading ? (
-            <span style={{ width: 14, height: 14, border: '2px solid #333', borderTop: '2px solid #888', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }}/>
+          {step < 3 ? (
+            <button onClick={() => setStep(s => s + 1)} disabled={!canNext} style={{ flex: 2, padding: 14, background: canNext ? '#e8ff47' : '#141414', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: canNext ? 'pointer' : 'default', transition: 'background 0.2s' }}>NEXT</button>
           ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285f4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34a853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#fbbc05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#ea4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            <button onClick={save} disabled={saving} style={{ flex: 2, padding: 14, background: saving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: saving ? 'default' : 'pointer' }}>
+              {saving ? 'SAVING...' : "LET'S GO"}
+            </button>
           )}
-          {googleLoading ? 'Redirecting...' : 'Continue with Google'}
-        </button>
-
-        <div style={{ textAlign: 'center', marginTop: 28, fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#1a1a1a', letterSpacing: 1 }}>
-          YOUR DATA IS PRIVATE · ENCRYPTED · YOURS
         </div>
       </div>
+    </div>
+  )
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────
+export default function HomePage() {
+  const [tab, setTab] = useState('food')
+  const [activeDate, setActiveDate] = useState(todayKey())
+  const [userId, setUserId] = useState<string|null>(null)
+  const [foods, setFoods] = useState<FoodItem[]>([])
+  const [sessions, setSessions] = useState<WorkoutSession[]>([])
+  const [loading, setLoading] = useState(true)
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  const [macroGoal, setMacroGoal] = useState(MACRO_GOAL)
+
+  useEffect(() => {
+    const loadProfile = async (uid: string) => {
+      const { data: profile, error } = await supabase.from('profiles').select('id,macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', uid).maybeSingle()
+      console.log('loadProfile:', { uid, profile, error })
+      // Any error (including RLS/schema) → treat as no profile → show onboarding
+      if (error || !profile) {
+        setNeedsOnboarding(true)
+      } else if (profile.macro_calories) {
+        setMacroGoal({ calories: profile.macro_calories, protein: profile.macro_protein, carbs: profile.macro_carbs, fat: profile.macro_fat })
+      }
+      setLoading(false)
+    }
+
+    // getUser() validates token server-side — source of truth
+    supabase.auth.getUser().then(async ({ data, error }) => {
+      if (error || !data.user) {
+        await supabase.auth.signOut()
+        setLoading(false)
+        return
+      }
+      setUserId(data.user.id)
+      await loadProfile(data.user.id)
+    })
+  }, [])
+
+  const handleOnboardingComplete = (profile: any) => {
+    setMacroGoal({ calories: profile.calories, protein: profile.protein, carbs: profile.carbs, fat: profile.fat })
+    setNeedsOnboarding(false)
+  }
+
+  const fetchData = useCallback(async () => {
+    if (!userId) return
+    const startDate = WEEK[0]
+    const [{ data: foodData }, { data: sessionData }] = await Promise.all([
+      supabase.from('food_logs').select('*').eq('user_id',userId).gte('logged_date',startDate).order('created_at'),
+      supabase.from('workout_sessions').select('*, exercises(*)').eq('user_id',userId).gte('logged_date',startDate).order('logged_date')
+    ])
+    setFoods(foodData||[])
+    setSessions((sessionData||[]).map((s:any) => ({...s, exercises: s.exercises||[]})))
+    setLoading(false)
+  }, [userId])
+
+  useEffect(() => { if (!needsOnboarding) fetchData() }, [fetchData, needsOnboarding])
+
+  if (loading) return (
+    <div style={{background:'#080808',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{width:24,height:24,border:'2px solid #1e1e1e',borderTop:'2px solid #e8ff47',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  )
+
+  if (!userId) return <LandingPage />
+
+  if (needsOnboarding && userId) return <OnboardingWizard userId={userId} onComplete={handleOnboardingComplete}/>
+
+  if (!userId) return null
+
+  const dayFoods = foods.filter(f=>f.logged_date===activeDate)
+  const totalCals = dayFoods.reduce((s,f)=>s+f.calories,0)
+  const totalPro = dayFoods.reduce((s,f)=>s+(+f.protein||0),0)
+  const daySession = sessions.find(s=>s.logged_date===activeDate)||null
+  const calsBurned = daySession?.cals_burned||0
+  const calsRemaining = macroGoal.calories - totalCals + calsBurned
+  const isToday = activeDate===todayKey()
+  const isFirstDay = activeDate===WEEK[0]
+  const ratedFoods = dayFoods.filter(f=>f.rating)
+  const dailyNutritionScore = ratedFoods.length > 0
+    ? Math.round((ratedFoods.reduce((s,f)=>s+(f.rating||0),0)/ratedFoods.length)*10)/10
+    : null
+
+  const shiftDate = (dir: number) => {
+    const d = new Date(activeDate+'T12:00:00')
+    d.setDate(d.getDate()+dir)
+    const next = d.toISOString().slice(0,10)
+    if (WEEK.includes(next)||next===todayKey()) setActiveDate(next)
+  }
+
+  const dateLabel = () => new Date(activeDate+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})
+  const dayLabels = WEEK.map(d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'}).slice(0,2))
+
+  return (
+    <div style={{background:'#080808',minHeight:'100vh',color:'#eee',fontFamily:"'DM Sans',sans-serif",maxWidth:480,margin:'0 auto'}}>
+      <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=DM+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+      {/* Header */}
+      <div style={{background:'#080808',borderBottom:'1px solid #0f0f0f',padding:'14px 14px 0',position:'sticky',top:0,zIndex:10}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:3,background:'linear-gradient(90deg,#e8ff47,#47c8ff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>RECOMP</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1.5,marginTop:1}}>208 → 195 · 6′2 · 38YO</div>
+          </div>
+          <div style={{display:'flex',gap:4,alignItems:'stretch'}}>
+            {/* Calories In / Burned / Remaining */}
+            <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 9px',display:'flex',gap:9,alignItems:'center'}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#e8ff47',lineHeight:1}}>{totalCals}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>IN</div>
+              </div>
+              <div style={{width:1,height:22,background:'#1a1a1a'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#ff6b6b',lineHeight:1}}>{calsBurned||0}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>BURN</div>
+              </div>
+              <div style={{width:1,height:22,background:'#1a1a1a'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:calsRemaining<0?'#ff6b6b':'#4aff7a',lineHeight:1}}>{Math.abs(calsRemaining)}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>{calsRemaining<0?'OVER':'LEFT'}</div>
+              </div>
+            </div>
+            {/* Nutrition + Workout scores */}
+            <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 9px',display:'flex',gap:9,alignItems:'center'}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:dailyNutritionScore?ratingColor(dailyNutritionScore):'#2a2a2a',lineHeight:1}}>{dailyNutritionScore||'N/A'}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>NUT</div>
+              </div>
+              <div style={{width:1,height:22,background:'#1a1a1a'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:daySession?.rating?ratingColor(daySession.rating):'#2a2a2a',lineHeight:1}}>{daySession?.rating||'N/A'}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>WRK</div>
+              </div>
+            </div>
+            <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href='/auth' }} style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 7px',color:'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer'}}>OUT</button>
+          </div>
+        </div>
+
+        {tab!=='trends'&&tab!=='profile'&&(
+          <>
+            <div style={{display:'flex',gap:3,marginBottom:8}}>
+              {WEEK.map((date,i)=>{
+                const isActive=date===activeDate
+                const hasFood=foods.some(f=>f.logged_date===date)
+                const hasSess=sessions.some(s=>s.logged_date===date)
+                const dow=new Date(date+'T12:00:00').getDay()
+                const isWknd=dow===0||dow===6
+                return (
+                  <button key={date} onClick={()=>setActiveDate(date)} style={{flex:1,padding:'5px 2px',background:isActive?'#1a1a1a':'transparent',border:`1px solid ${isActive?'#333':'#111'}`,borderRadius:5,cursor:'pointer',textAlign:'center'}}>
+                    <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:isActive?'#e8ff47':isWknd?'#ff6b6b44':'#2a2a2a',marginBottom:2}}>{dayLabels[i]}</div>
+                    <div style={{display:'flex',justifyContent:'center',gap:2}}>
+                      <div style={{width:4,height:4,borderRadius:'50%',background:hasFood?(isWknd?'#ff6b6b':'#47c8ff'):'#1a1a1a'}}/>
+                      <div style={{width:4,height:4,borderRadius:'50%',background:hasSess?'#4aff7a':'#1a1a1a'}}/>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+              <button onClick={()=>shiftDate(-1)} disabled={isFirstDay} style={{background:'none',border:'1px solid #181818',borderRadius:5,color:isFirstDay?'#111':'#3a3a3a',cursor:isFirstDay?'default':'pointer',padding:'3px 10px',fontSize:14}}>‹</button>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontSize:12,color:'#999',fontWeight:600}}>{dateLabel()}</div>
+                {isToday&&<div style={{fontSize:8,color:'#e8ff47',fontFamily:"'DM Mono',monospace",letterSpacing:1}}>TODAY</div>}
+              </div>
+              <button onClick={()=>shiftDate(1)} disabled={isToday} style={{background:'none',border:'1px solid #181818',borderRadius:5,color:isToday?'#181818':'#3a3a3a',cursor:isToday?'default':'pointer',padding:'3px 10px',fontSize:14}}>›</button>
+            </div>
+          </>
+        )}
+
+        <div style={{display:'flex'}}>
+          {[['food','NUTRITION','#e8ff47'],['workout','TRAINING','#47c8ff'],['trends','TRENDS','#4aff7a'],['profile','PROFILE','#c447ff']].map(([key,label,color])=>(
+            <button key={key} onClick={()=>setTab(key)} style={{flex:1,background:'none',border:'none',borderBottom:tab===key?`2px solid ${color}`:'2px solid transparent',color:tab===key?color:'#2a2a2a',fontFamily:"'Bebas Neue',sans-serif",fontSize:10,letterSpacing:1.5,padding:'7px 0 9px',cursor:'pointer',transition:'all 0.2s'}}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{paddingTop:12,paddingBottom:90}}>
+        {tab==='food'&&<FoodTab foods={foods} activeDate={activeDate} userId={userId} onRefresh={fetchData} macroGoal={macroGoal}/>}
+        {tab==='workout'&&<WorkoutTab session={daySession} activeDate={activeDate} userId={userId} onRefresh={fetchData}/>}
+        {tab==='trends'&&<TrendsTab foods={foods} sessions={sessions}/>}
+        {tab==='profile'&&<ProfileTab userId={userId} macroGoal={macroGoal} onMacrosUpdated={(m)=>{ setMacroGoal(m) }}/>}
+      </div>
+
+      {tab!=='trends'&&tab!=='profile'&&(
+        <SmartInputBar tab={tab} activeDate={activeDate} userId={userId} onRefresh={fetchData}/>
+      )}
     </div>
   )
 }
