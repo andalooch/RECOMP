@@ -1503,7 +1503,7 @@ function LandingPage() {
         <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, letterSpacing: 4, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RECOMP</div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 8, color: '#444', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer' }}>LOG IN</button>
-          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: '#e8ff47', border: 'none', borderRadius: 8, color: '#080808', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>START FREE</button>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: '#e8ff47', border: 'none', borderRadius: 8, color: '#080808', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>GET STARTED</button>
         </div>
       </nav>
       {/* Hero */}
@@ -1517,7 +1517,7 @@ function LandingPage() {
           Log food by talking. Grade your workouts with AI. Watch your body change one check-in at a time.
         </p>
         <div className="fu4" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, justifyContent: 'center', marginBottom: 60 }}>
-          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>GET STARTED FREE</button>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>GET STARTED</button>
           <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 10, color: '#2a2a2a', fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>LOG IN</button>
         </div>
         <div className="fu4" style={{ display: 'flex', gap: 48, flexWrap: 'wrap' as const, justifyContent: 'center' }}>
@@ -1542,8 +1542,8 @@ function LandingPage() {
           ))}
         </div>
         <div style={{ textAlign: 'center' as const, marginTop: 60 }}>
-          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 44px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, letterSpacing: 3, cursor: 'pointer' }}>START FOR FREE</button>
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1a1a1a', marginTop: 14, letterSpacing: 1 }}>NO CREDIT CARD · NO ADS · YOUR DATA IS YOURS</div>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 44px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, letterSpacing: 3, cursor: 'pointer' }}>GET STARTED</button>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1a1a1a', marginTop: 14, letterSpacing: 1 }}>NO ADS · YOUR DATA IS YOURS</div>
         </div>
       </section>
     </div>
