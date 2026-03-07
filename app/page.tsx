@@ -108,9 +108,9 @@ function ManualModal({ meal, onAdd, onClose }: { meal:string; onAdd:(f:any)=>voi
 }
 
 // ── Meal Rating Modal ─────────────────────────────────────────────────────
-function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; onClose:()=>void; onRated:(r:{score:number;notes:string})=>void; forceRefresh?:boolean }) {
-  const [rating, setRating] = useState<{score:number;notes:string}|null>(
-    (!forceRefresh && meal.rating) ? {score:meal.rating, notes:meal.ai_analysis||''} : null
+function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; onClose:()=>void; onRated:(r:{score:number;notes:string;itemScores:any[]})=>void; forceRefresh?:boolean }) {
+  const [result, setResult] = useState<{mealScore:number;mealNotes:string;items:{name:string;score:number;note:string}[]}|null>(
+    (!forceRefresh && meal.rating) ? {mealScore:meal.rating, mealNotes:meal.ai_analysis||'', items:meal.itemScores||[]} : null
   )
   const [loading, setLoading] = useState(forceRefresh || !meal.rating)
 
@@ -118,17 +118,17 @@ function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; o
     if (!forceRefresh && meal.rating) return
     const go = async () => {
       setLoading(true)
-      setRating(null)
+      setResult(null)
       try {
         const res = await fetch('/api/rate-meal', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ name: meal.name, calories: meal.calories, protein: meal.protein, carbs: meal.carbs, fat: meal.fat, goals: MACRO_GOAL })
+          body: JSON.stringify({ items: meal.items, mealName: meal.name, calories: meal.calories, protein: meal.protein, carbs: meal.carbs, fat: meal.fat, goals: MACRO_GOAL })
         })
         const data = await res.json()
-        setRating({ score: data.score, notes: data.notes })
+        setResult(data)
       } catch {
-        setRating({ score: 5, notes: 'Unable to rate at this time.' })
+        setResult({ mealScore: 5, mealNotes: 'Unable to rate at this time.', items: [] })
       }
       setLoading(false)
     }
@@ -136,27 +136,43 @@ function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; o
   }, [forceRefresh])
 
   const handleDone = () => {
-    if (rating) onRated(rating)
+    if (result) onRated({ score: result.mealScore, notes: result.mealNotes, itemScores: result.items })
     onClose()
   }
 
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.95)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300,backdropFilter:'blur(10px)'}}>
-      <div style={{background:'#0c0c0c',border:'1px solid #1e1e1e',borderRadius:16,padding:24,width:320,maxWidth:'90vw'}}>
-        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#e8ff47',letterSpacing:2,marginBottom:4}}>MEAL RATING</div>
-        <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#333',marginBottom:16}}>{meal.name}</div>
+      <div style={{background:'#0c0c0c',border:'1px solid #1e1e1e',borderRadius:16,padding:24,width:340,maxWidth:'94vw',maxHeight:'85vh',overflowY:'auto'}}>
+        <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,color:'#e8ff47',letterSpacing:2,marginBottom:4}}>{meal.name.toUpperCase()} RATING</div>
         {loading ? (
-          <div style={{textAlign:'center',padding:'30px 0'}}>
+          <div style={{textAlign:'center',padding:'40px 0'}}>
             <div style={{width:24,height:24,border:'2px solid #1e1e1e',borderTop:'2px solid #e8ff47',borderRadius:'50%',animation:'spin 0.7s linear infinite',margin:'0 auto 12px'}}/>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#333'}}>Analyzing nutrition...</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#333'}}>Rating each item...</div>
           </div>
-        ) : rating ? (
+        ) : result ? (
           <>
-            <div style={{textAlign:'center',marginBottom:16}}>
-              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:64,color:ratingColor(rating.score),lineHeight:1}}>{rating.score}</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333',letterSpacing:1}}>/10 RECOMP SCORE</div>
+            {/* Per-item scores */}
+            {result.items && result.items.length > 0 && (
+              <div style={{marginBottom:16}}>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1.5,marginBottom:8}}>ITEM BREAKDOWN</div>
+                {result.items.map((item, i) => (
+                  <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'8px 0',borderBottom:'1px solid #0e0e0e'}}>
+                    <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(item.score),lineHeight:1,minWidth:28,textAlign:'center'}}>{item.score}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:'#888',fontWeight:600,marginBottom:2}}>{item.name}</div>
+                      <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',lineHeight:1.5}}>{item.note}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Meal summary score */}
+            <div style={{background:'#0a0f0a',border:'1px solid #1a3a1a',borderRadius:10,padding:'14px',textAlign:'center',marginBottom:14}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1.5,marginBottom:4}}>MEAL SCORE</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:56,color:ratingColor(result.mealScore),lineHeight:1}}>{result.mealScore}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1}}>/10</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#444',lineHeight:1.6,marginTop:10,textAlign:'left'}}>{result.mealNotes}</div>
             </div>
-            <div style={{background:'#0a0a0a',border:'1px solid #141414',borderRadius:8,padding:'10px 12px',fontFamily:"'DM Mono',monospace",fontSize:10,color:'#555',lineHeight:1.6,marginBottom:16}}>{rating.notes}</div>
           </>
         ) : null}
         <button onClick={handleDone} style={{width:'100%',padding:12,background:'#e8ff47',border:'none',borderRadius:10,color:'#080808',fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:2,cursor:'pointer'}}>DONE</button>
@@ -249,7 +265,7 @@ function ActivityCard({ w, onRemove }: { w:Exercise; onRemove?:()=>void }) {
 // ── Food Tab ──────────────────────────────────────────────────────────────
 function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; activeDate:string; userId:string; onRefresh:()=>void }) {
   const [modal, setModal] = useState<string|null>(null)
-  const [ratingMeal, setRatingMeal] = useState<{name:string;calories:number;protein:number;carbs:number;fat:number;rating?:number;ai_analysis?:string;slot:string}|null>(null)
+  const [ratingMeal, setRatingMeal] = useState<any|null>(null)
   const [forceRefresh, setForceRefresh] = useState(false)
 
   const openRating = (mealData: any, isReRate: boolean) => {
@@ -270,13 +286,19 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
     await supabase.from('food_logs').delete().eq('id', id)
     onRefresh()
   }
-  const saveRating = async (result: {score:number;notes:string}) => {
+  const saveRating = async (result: {score:number;notes:string;itemScores?:any[]}) => {
     if (!ratingMeal) return
-    // Save rating to all items in the meal slot
     const slotFoods = meals[ratingMeal.slot]||[]
     for (const f of slotFoods) {
-      await supabase.from('food_logs').update({ rating: result.score, ai_analysis: result.notes }).eq('id', f.id)
+      const itemScore = result.itemScores?.find((s:any) => s.name.toLowerCase().trim() === f.name.toLowerCase().trim())
+      await supabase.from('food_logs').update({
+        rating: itemScore ? itemScore.score : result.score,
+        ai_analysis: itemScore ? itemScore.note : result.notes
+      }).eq('id', f.id)
     }
+    onRefresh()
+    setRatingMeal(null)
+  }
     onRefresh()
     setRatingMeal(null)
   }
@@ -317,7 +339,7 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
                   const mp2 = mFoods.reduce((s,f)=>s+(+f.protein||0),0)
                   const mcarbs = mFoods.reduce((s,f)=>s+(+f.carbs||0),0)
                   const mfat = mFoods.reduce((s,f)=>s+(+f.fat||0),0)
-                  return <button onClick={()=>openRating({name:meal,calories:mc2,protein:mp2,carbs:mcarbs,fat:mfat,rating:mealRating,ai_analysis:mFoods[0]?.ai_analysis,slot:meal}, !!mealRating)}
+                  return <button onClick={()=>openRating({name:meal,items:mFoods,calories:mc2,protein:mp2,carbs:mcarbs,fat:mfat,rating:mealRating,ai_analysis:mFoods[0]?.ai_analysis,itemScores:mFoods.map(f=>({name:f.name,score:f.rating,note:f.ai_analysis})).filter(s=>s.score),slot:meal}, !!mealRating)}
                     style={{background:'#0a1a0a',border:`1px solid ${mealRating?'#1e4a1e':'#1e3a1e'}`,borderRadius:5,color:mealRating?sc:'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
                     {mealRating&&<span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,lineHeight:1}}>{mealRating}</span>}
                     {mealRating?'re-rate':'rate'}
