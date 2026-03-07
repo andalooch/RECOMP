@@ -957,33 +957,71 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             </div>
           </div>
 
-          {/* Stats */}
+          {/* Stats — START / CURRENT / GOAL progress strip */}
           <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 12 }}>STATS</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>PROGRESS</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: goalColors[profile.goal_type] || '#333' }}>{goalLabels[profile.goal_type] || '—'} · {paceLabels[profile.pace] || '—'}</div>
+            </div>
+
+            {/* Three-column weight strip */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 14 }}>
+              {/* START */}
+              <div style={{ background: '#080808', border: '1px solid #111', borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#252525', letterSpacing: 1, marginBottom: 4 }}>START</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: '#444', lineHeight: 1 }}>
+                  {firstWeight ?? (profile.weight_lb ? parseFloat(profile.weight_lb) : null) ?? '—'}
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e', marginTop: 2 }}>lb</div>
+              </div>
+              {/* CURRENT */}
+              <div style={{ background: '#080808', border: '1px solid #47c8ff33', borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#47c8ff66', letterSpacing: 1, marginBottom: 4 }}>NOW</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: '#47c8ff', lineHeight: 1 }}>
+                  {latestWeight ?? (profile.weight_lb ? parseFloat(profile.weight_lb) : null) ?? '—'}
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#47c8ff44', marginTop: 2 }}>
+                  {totalChange !== null && totalChange !== 0 ? `${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)} lb` : 'lb'}
+                </div>
+              </div>
+              {/* GOAL */}
+              <div style={{ background: '#080808', border: `1px solid ${targetWeight ? '#4aff7a33' : '#111'}`, borderRadius: 10, padding: '12px 8px', textAlign: 'center' as const }}>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#4aff7a66' : '#252525', letterSpacing: 1, marginBottom: 4 }}>GOAL</div>
+                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, color: targetWeight ? '#4aff7a' : '#333', lineHeight: 1 }}>
+                  {targetWeight ?? '—'}
+                </div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: targetWeight ? '#4aff7a44' : '#1e1e1e', marginTop: 2 }}>
+                  {toGoal !== null ? `${Math.abs(toGoal).toFixed(1)} to go` : 'lb'}
+                </div>
+              </div>
+            </div>
+
+            {/* Progress bar start → goal */}
+            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ height: 4, background: '#111', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
+                  <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #4aff7a, #47c8ff)', width: `${Math.min(100, Math.max(0, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100)).toFixed(0)}%`, transition: 'width 0.4s' }}/>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222' }}>
+                  <span>{firstWeight} lb</span>
+                  <span style={{ color: '#4aff7a' }}>{Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}% there</span>
+                  <span>{targetWeight} lb</span>
+                </div>
+              </div>
+            )}
+
+            {/* Secondary stats row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
               {[
                 ['NAME', profile.full_name || '—'],
                 ['AGE', profile.age ? profile.age + ' yrs' : '—'],
                 ['HEIGHT', profile.height_in ? `${Math.floor(profile.height_in/12)}′${profile.height_in%12}″` : '—'],
-                ['CURRENT', latestWeight ? latestWeight + ' lb' : profile.weight_lb ? profile.weight_lb + ' lb' : '—'],
-                ['TARGET', targetWeight ? targetWeight + ' lb' : '—'],
-                ['TO GO', toGoal !== null ? Math.abs(toGoal).toFixed(1) + ' lb ' + (toGoal > 0 ? '↓' : '↑') : '—'],
               ].map(([l, v]) => (
-                <div key={String(l)} style={{ background: '#080808', borderRadius: 8, padding: '10px 12px' }}>
-                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', letterSpacing: 1, marginBottom: 3 }}>{l}</div>
-                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 13, color: '#888', fontWeight: 600 }}>{v}</div>
+                <div key={String(l)} style={{ background: '#080808', borderRadius: 8, padding: '8px 10px', textAlign: 'center' as const }}>
+                  <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e', letterSpacing: 1, marginBottom: 2 }}>{l}</div>
+                  <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: '#444', fontWeight: 600 }}>{v}</div>
                 </div>
               ))}
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <div style={{ flex: 1, background: '#080808', borderRadius: 8, padding: '10px 12px' }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', letterSpacing: 1, marginBottom: 4 }}>GOAL</div>
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 13, color: goalColors[profile.goal_type] || '#555', letterSpacing: 1 }}>{goalLabels[profile.goal_type] || '—'}</div>
-              </div>
-              <div style={{ flex: 1, background: '#080808', borderRadius: 8, padding: '10px 12px' }}>
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#2a2a2a', letterSpacing: 1, marginBottom: 4 }}>PACE</div>
-                <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 13, color: paceColors[profile.pace] || '#555', letterSpacing: 1 }}>{paceLabels[profile.pace] || '—'}</div>
-              </div>
             </div>
           </div>
 
