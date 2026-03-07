@@ -1350,6 +1350,9 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
     </div>
   )
 }
+
+// ── Main App ──────────────────────────────────────────────────────────────
+export default function HomePage() {
   const [tab, setTab] = useState('food')
   const [activeDate, setActiveDate] = useState(todayKey())
   const [userId, setUserId] = useState<string|null>(null)
