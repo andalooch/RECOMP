@@ -1374,11 +1374,16 @@ export default function HomePage() {
     supabase.auth.getUser().then(async ({ data }) => {
       if (!data.user) { window.location.href = '/auth'; return }
       setUserId(data.user.id)
-      const { data: profile } = await supabase.from('profiles').select('macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', data.user.id).maybeSingle()
-      if (!profile?.macro_calories) {
+      const { data: profile } = await supabase.from('profiles').select('id,macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', data.user.id).maybeSingle()
+      if (!profile) {
+        // Brand new user — no profile row at all → show onboarding
         setNeedsOnboarding(true)
         setLoading(false)
       } else {
+        // Existing user — load their macros (use defaults if not set yet)
+        if (profile.macro_calories) {
+          setMacroGoal({ calories: profile.macro_calories, protein: profile.macro_protein, carbs: profile.macro_carbs, fat: profile.macro_fat })
+        }
         setMacroGoal({ calories: profile.macro_calories, protein: profile.macro_protein, carbs: profile.macro_carbs, fat: profile.macro_fat })
       }
     })
