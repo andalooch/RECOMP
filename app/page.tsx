@@ -1484,23 +1484,6 @@ export default function HomePage() {
   const [macroGoal, setMacroGoal] = useState(MACRO_GOAL)
 
   useEffect(() => {
-    const init = async () => {
-      // Use getSession first (local/cached) — avoids redirect loop from network failures
-      const { data: { session } } = await supabase.auth.getSession()
-      const uid = session?.user?.id
-
-      if (!uid) {
-        // Double-check with getUser in case session is stale
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) { window.location.href = '/auth'; return }
-        setUserId(user.id)
-        await loadProfile(user.id)
-      } else {
-        setUserId(uid)
-        await loadProfile(uid)
-      }
-    }
-
     const loadProfile = async (uid: string) => {
       const { data: profile, error } = await supabase.from('profiles').select('id,macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', uid).maybeSingle()
       if (error && error.code !== 'PGRST116') {
@@ -1516,7 +1499,17 @@ export default function HomePage() {
       setLoading(false)
     }
 
-    init()
+    // getUser() validates token server-side — source of truth
+    supabase.auth.getUser().then(async ({ data, error }) => {
+      if (error || !data.user) {
+        // Clear any stale local session then redirect
+        await supabase.auth.signOut()
+        window.location.href = '/auth'
+        return
+      }
+      setUserId(data.user.id)
+      await loadProfile(data.user.id)
+    })
   }, [])
 
   const handleOnboardingComplete = (profile: any) => {
