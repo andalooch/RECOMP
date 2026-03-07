@@ -897,6 +897,17 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
   const toGoal = latestWeight && targetWeight ? (latestWeight - targetWeight) : null
   const todayCheckedIn = weightLogs.some(w => w.logged_date === todayKey())
 
+  // Pre-fill check-in with today's value if already logged
+  useEffect(() => {
+    if (section === 'checkin') {
+      const todayLog = weightLogs.find((w:any) => w.logged_date === todayKey())
+      if (todayLog) {
+        setCheckInWeight(String(todayLog.weight_lb))
+        setCheckInNotes(todayLog.notes || '')
+      }
+    }
+  }, [section, weightLogs])
+
   // Mini sparkline — last 14 days
   const spark = sortedLogs.slice(-14)
   const sparkMin = spark.length ? Math.min(...spark.map((s:any) => s.weight_lb)) - 2 : 0
@@ -1033,51 +1044,101 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
 
       {/* ── CHECK-IN ── */}
       {section === 'checkin' && (
-        <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '20px', marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>DAILY CHECK-IN</div>
-            {todayCheckedIn && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#4aff7a', letterSpacing: 1 }}>✓ LOGGED TODAY</div>}
-          </div>
+        <div style={{ marginBottom: 12 }}>
+          {/* Today's entry — shows existing value pre-filled if logged */}
+          <div style={{ background: '#0c0c0c', border: `1px solid ${todayCheckedIn ? '#2a3a2a' : '#1a1a1a'}`, borderRadius: 14, padding: '20px', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5 }}>TODAY'S CHECK-IN</div>
+                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', marginTop: 3 }}>
+                  {todayCheckedIn ? 'Tap weight to update' : 'Enter your weight below'}
+                </div>
+              </div>
+              {todayCheckedIn && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#4aff7a', letterSpacing: 1 }}>✓ LOGGED</div>}
+            </div>
 
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>WEIGHT (LB)</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>WEIGHT (LB)</div>
             <input
               value={checkInWeight}
               onChange={e => setCheckInWeight(e.target.value)}
-              placeholder={latestWeight ? String(latestWeight) : profile?.weight_lb ? String(profile.weight_lb) : 'e.g. 207.4'}
+              placeholder={todayCheckedIn
+                ? String(weightLogs.find((w:any) => w.logged_date === todayKey())?.weight_lb || '')
+                : latestWeight ? String(latestWeight) : 'e.g. 207.4'}
               type="number" step="0.1"
-              style={{ ...inputStyle, flex: 1, fontSize: 20, padding: '12px 14px', color: '#ccc' }}
+              style={{ ...inputStyle, fontSize: 22, padding: '14px', marginBottom: 10, color: '#ccc', textAlign: 'center' as const }}
             />
-            <div style={{ background: '#080808', border: '1px solid #1a1a1a', borderRadius: 7, padding: '10px 12px', display: 'flex', alignItems: 'center' }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a' }}>
-                {latestWeight ? `last: ${latestWeight}` : '—'}
+
+            <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>NOTES (OPTIONAL)</div>
+            <input value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)}
+              placeholder={todayCheckedIn
+                ? weightLogs.find((w:any) => w.logged_date === todayKey())?.notes || 'Add a note...'
+                : 'e.g. feeling lean, held water...'}
+              style={{ ...inputStyle, marginBottom: 14 }}/>
+
+            {/* Live change preview */}
+            {checkInWeight && (latestWeight || profile?.weight_lb) && (
+              <div style={{ marginBottom: 14, padding: '10px 12px', background: '#080808', border: '1px solid #141414', borderRadius: 8 }}>
+                {(() => {
+                  const ref = todayCheckedIn
+                    ? weightLogs.find((w:any) => w.logged_date !== todayKey())?.weight_lb ?? latestWeight
+                    : latestWeight ?? profile?.weight_lb
+                  if (!ref) return null
+                  const delta = +checkInWeight - ref
+                  return (
+                    <>
+                      <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>CHANGE FROM LAST</span>
+                        <span style={{ color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#555' }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)} lb</span>
+                      </div>
+                      {targetWeight && (
+                        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
+                          <span>TO GOAL</span>
+                          <span style={{ color: '#555' }}>{Math.abs(+checkInWeight - targetWeight).toFixed(1)} lb</span>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
-            </div>
+            )}
+
+            <button onClick={saveCheckIn} disabled={!checkInWeight || checkInSaving} style={{ width: '100%', padding: '14px', background: !checkInWeight || checkInSaving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer' }}>
+              {checkInSaving ? 'SAVING...' : todayCheckedIn ? 'UPDATE TODAY' : 'LOG CHECK-IN'}
+            </button>
           </div>
 
-          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>NOTES (OPTIONAL)</div>
-          <input value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)} placeholder="e.g. feeling lean, held water..." style={{ ...inputStyle, marginBottom: 16 }}/>
-
-          {checkInWeight && latestWeight && (
-            <div style={{ marginBottom: 14, padding: '10px 12px', background: '#080808', border: '1px solid #141414', borderRadius: 8 }}>
-              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between' }}>
-                <span>CHANGE FROM LAST</span>
-                <span style={{ color: +checkInWeight < latestWeight ? '#4aff7a' : +checkInWeight > latestWeight ? '#ff6b6b' : '#555' }}>
-                  {(+checkInWeight - latestWeight) > 0 ? '+' : ''}{(+checkInWeight - latestWeight).toFixed(1)} lb
-                </span>
-              </div>
-              {targetWeight && (
-                <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
-                  <span>TO GOAL</span>
-                  <span style={{ color: '#555' }}>{Math.abs(+checkInWeight - targetWeight).toFixed(1)} lb</span>
-                </div>
-              )}
+          {/* Full history with delete */}
+          {weightLogs.length > 0 && (
+            <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px' }}>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#3a3a3a', letterSpacing: 1.5, marginBottom: 10 }}>HISTORY</div>
+              {weightLogs.map((w: any, i: number) => {
+                const prev = weightLogs[i + 1]
+                const delta = prev ? w.weight_lb - prev.weight_lb : null
+                const isToday = w.logged_date === todayKey()
+                return (
+                  <div key={w.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '9px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #111' : 'none' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#666' }}>{new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+                        {isToday && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#e8ff47', letterSpacing: 0.5 }}>TODAY</div>}
+                      </div>
+                      {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a2a2a', marginTop: 2 }}>{w.notes}</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, color: '#888', lineHeight: 1 }}>{w.weight_lb} <span style={{ fontSize: 10, color: '#333' }}>lb</span></div>
+                        {delta !== null
+                          ? <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333', marginTop: 1 }}>{delta > 0 ? '+' : ''}{delta.toFixed(1)} lb</div>
+                          : <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#1e1e1e', marginTop: 1 }}>first entry</div>
+                        }
+                      </div>
+                      <button onClick={() => deleteWeightLog(w.id)} style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', borderRadius: 5, color: '#333', cursor: 'pointer', fontSize: 12, padding: '4px 8px', lineHeight: 1 }}>×</button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
-
-          <button onClick={saveCheckIn} disabled={!checkInWeight || checkInSaving} style={{ width: '100%', padding: '14px', background: !checkInWeight || checkInSaving ? '#141414' : '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, letterSpacing: 2, cursor: !checkInWeight || checkInSaving ? 'default' : 'pointer' }}>
-            {checkInSaving ? 'SAVING...' : 'LOG CHECK-IN'}
-          </button>
         </div>
       )}
 
