@@ -12,16 +12,28 @@ export default function AuthPage() {
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null)
   const [checkingSession, setCheckingSession] = useState(true)
 
-  // Auto-redirect if already logged in
+  // Auto-redirect if already logged in — use getUser() for server-side validation
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.href = '/'
-      else setCheckingSession(false)
+    supabase.auth.getUser().then(async ({ data, error }) => {
+      if (data.user && !error) {
+        window.location.href = '/'
+      } else {
+        // Clear any stale local session
+        await supabase.auth.signOut()
+        setCheckingSession(false)
+      }
     })
     // Listen for auth state changes (handles OAuth callback)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        window.location.href = '/'
+        // Validate server-side before redirecting
+        const { data, error } = await supabase.auth.getUser()
+        if (data.user && !error) {
+          window.location.href = '/'
+        } else {
+          await supabase.auth.signOut()
+          setCheckingSession(false)
+        }
       }
     })
     return () => subscription.unsubscribe()
