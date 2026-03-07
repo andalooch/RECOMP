@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 1200,
+    max_tokens: 2000,
     system: `You are an elite strength and conditioning coach for body recomposition. Athlete: 6'2", 208lb, 38yo, goal 195lb recomp, training 6-7x/week, intermediate-advanced lifter.
 
 Grade each exercise individually AND the session overall. Be honest and varied:
