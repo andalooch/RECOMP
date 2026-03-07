@@ -440,7 +440,13 @@ function FoodTab({ foods, activeDate, userId, onRefresh, macroGoal }: { foods:Fo
 }
 
 // ── Workout Tab ───────────────────────────────────────────────────────────
-function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:WorkoutSession|null; activeDate:string; userId:string; onRefresh:()=>void }) {
+function WorkoutTab({ sessions: daySessions, activeDate, userId, onRefresh }: { sessions:WorkoutSession[]; activeDate:string; userId:string; onRefresh:()=>void }) {
+  const [activeSessionIdx, setActiveSessionIdx] = useState(0)
+  const session = daySessions[activeSessionIdx] || null
+
+  // Reset to first session when date changes
+  useEffect(() => { setActiveSessionIdx(0) }, [activeDate])
+
   const [analyzing, setAnalyzing] = useState(false)
   const [addingExercise, setAddingExercise] = useState(false)
   const [newEx, setNewEx] = useState({ name:'', type:'strength', duration:'', intensity:'', calories:'', notes:'' })
@@ -467,7 +473,13 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
     if (!session || !session.exercises.length) return
     setSavingTemplate(true)
     const name = workoutName || 'My Workout'
-    const exercises = session.exercises.map(e => ({ name: e.name, type: e.type, sets: e.sets }))
+    const exercises = session.exercises.map(e => ({
+      name: e.name,
+      type: e.type,
+      sets: isCardioType(getActivityType(e.name))
+        ? [{ duration: '', intensity: '', calories: '', notes: '' }]
+        : [{ weight: '', reps: '' }]
+    }))
     await supabase.from('workout_templates').insert({ user_id: userId, name, exercises })
     const {data} = await supabase.from('workout_templates').select('*').eq('user_id', userId).order('created_at', {ascending:false})
     setTemplates(data || [])
@@ -587,15 +599,48 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
     onRefresh()
   }
 
+  const deleteWorkout = async () => {
+    if (!session) return
+    if (!confirm('Delete this entire workout?')) return
+    await supabase.from('exercises').delete().eq('session_id', session.id)
+    await supabase.from('workout_sessions').delete().eq('id', session.id)
+    setWorkoutName('')
+    setCalsBurned(0)
+    onRefresh()
+  }
+
   const s: React.CSSProperties = {background:'#1c1c22',border:'1px solid #202020',borderRadius:6,padding:'7px 10px',color:'#ccc',fontFamily:"'DM Mono',monospace",fontSize:11,width:'100%',outline:'none',boxSizing:'border-box'}
   const aType = getActivityType(newEx.name)
   const newIsCardio = isCardioType(aType)
 
   return (
     <div style={{padding:'0 14px 40px'}}>
+
+      {/* Session selector */}
+      <div style={{display:'flex',gap:6,marginBottom:10,alignItems:'center',flexWrap:'wrap' as const}}>
+        {daySessions.map((s, i) => (
+          <button key={s.id} onClick={()=>{ setActiveSessionIdx(i); setWorkoutName(s.workout_name||''); setCalsBurned(s.cals_burned||0) }}
+            style={{padding:'6px 12px',background:i===activeSessionIdx?'#1e1e28':'#131313',border:`1px solid ${i===activeSessionIdx?'#3a3a4a':'#2e2e35'}`,borderRadius:8,color:i===activeSessionIdx?'#ccc':'#666',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer',maxWidth:130,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' as const}}>
+            {s.workout_name||`Session ${i+1}`}{s.cals_burned ? ` · ${s.cals_burned}` : ''}
+          </button>
+        ))}
+        <button onClick={async()=>{
+          const { data } = await supabase.from('workout_sessions').insert({ user_id:userId, logged_date:activeDate, workout_name:'', cals_burned:0 }).select('id')
+          if (data?.[0]) { onRefresh(); setTimeout(()=>setActiveSessionIdx(daySessions.length), 300) }
+        }} style={{padding:'6px 10px',background:'transparent',border:'1px dashed #2e2e35',borderRadius:8,color:'#555',fontFamily:"'DM Mono',monospace",fontSize:9,cursor:'pointer'}}>+ session</button>
+        {daySessions.length > 1 && (
+          <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#e07a5f',marginLeft:'auto'}}>
+            {daySessions.reduce((a,x)=>a+(x.cals_burned||0),0)} cal total
+          </div>
+        )}
+      </div>
+
       {/* Session header */}
       <div style={{background:'#131313',border:'1px solid #181818',borderRadius:16,padding:'13px 14px',marginBottom:10}}>
-        <input value={workoutName} onChange={e=>setWorkoutName(e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({workout_name:workoutName}).eq('id',session.id); onRefresh() }}} placeholder="Workout name..." style={{background:'transparent',border:'none',color:'#bbb',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:18,letterSpacing:2,width:'100%',outline:'none'}}/>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <input value={workoutName} onChange={e=>setWorkoutName(e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({workout_name:workoutName}).eq('id',session.id); onRefresh() }}} placeholder="Workout name..." style={{background:'transparent',border:'none',color:'#bbb',fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:18,letterSpacing:2,width:'100%',outline:'none'}}/>
+          {session && <button onClick={deleteWorkout} style={{background:'none',border:'none',color:'#555',cursor:'pointer',fontSize:14,padding:'0 2px',flexShrink:0}} title="Delete workout">🗑️</button>}
+        </div>
         <div style={{display:'flex',gap:8,marginTop:8,alignItems:'center'}}>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#777'}}>CALS BURNED:</div>
           <input type="number" value={calsBurned||''} onChange={e=>setCalsBurned(+e.target.value)} onBlur={async()=>{ if(session){ await supabase.from('workout_sessions').update({cals_burned:calsBurned}).eq('id',session.id); onRefresh() }}} placeholder="0" style={{background:'#1c1c22',border:'1px solid #2e2e35',borderRadius:4,color:'#e07a5f',fontFamily:"'DM Mono',monospace",fontSize:11,padding:'3px 7px',width:70,outline:'none'}}/>
@@ -1741,8 +1786,9 @@ export default function HomePage() {
   const dayFoods = foods.filter(f=>f.logged_date===activeDate)
   const totalCals = dayFoods.reduce((s,f)=>s+f.calories,0)
   const totalPro = dayFoods.reduce((s,f)=>s+(+f.protein||0),0)
-  const daySession = sessions.find(s=>s.logged_date===activeDate)||null
-  const calsBurned = daySession?.cals_burned||0
+  const daySessions = sessions.filter(s=>s.logged_date===activeDate)
+  const daySession = daySessions[0]||null
+  const calsBurned = daySessions.reduce((sum,s)=>sum+(s.cals_burned||0),0)
   const calsRemaining = macroGoal.calories - totalCals + calsBurned
   const isToday = activeDate===todayKey()
   const isFirstDay = activeDate===WEEK[0]
@@ -1799,7 +1845,7 @@ export default function HomePage() {
               </div>
               <div style={{width:1,height:22,background:'#2a2a30'}}/>
               <div style={{textAlign:'center'}}>
-                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:16,color:daySession?.rating?ratingColor(daySession.rating):'#555',lineHeight:1}}>{daySession?.rating||'N/A'}</div>
+                <div style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontSize:16,color:(()=>{const r=daySessions.filter(s=>s.rating);return r.length?ratingColor(r.reduce((a,s)=>a+(s.rating||0),0)/r.length):'#555'})(),lineHeight:1}}>{(()=>{const r=daySessions.filter(s=>s.rating);return r.length?(r.reduce((a,s)=>a+(s.rating||0),0)/r.length).toFixed(1):'N/A'})()}</div>
                 <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#999',letterSpacing:0.5,marginTop:1}}>WRK</div>
               </div>
             </div>
@@ -1847,7 +1893,7 @@ export default function HomePage() {
 
       <div style={{paddingTop:12,paddingBottom:90}}>
         {tab==='food'&&<FoodTab foods={foods} activeDate={activeDate} userId={userId} onRefresh={fetchData} macroGoal={macroGoal}/>}
-        {tab==='workout'&&<WorkoutTab session={daySession} activeDate={activeDate} userId={userId} onRefresh={fetchData}/>}
+        {tab==='workout'&&<WorkoutTab sessions={daySessions} activeDate={activeDate} userId={userId} onRefresh={fetchData}/>}
         {tab==='trends'&&<TrendsTab foods={foods} sessions={sessions}/>}
         {tab==='profile'&&<ProfileTab userId={userId} macroGoal={macroGoal} onMacrosUpdated={(m)=>{ setMacroGoal(m) }}/>}
       </div>
