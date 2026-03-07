@@ -438,6 +438,12 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
   const [workoutName, setWorkoutName] = useState(session?.workout_name||'')
   const [calsBurned, setCalsBurned] = useState(session?.cals_burned||0)
 
+  const [exerciseGrades, setExerciseGrades] = useState<{name:string;score:number;note:string}[]>(session?.exercise_grades||[])
+
+  useEffect(() => {
+    setExerciseGrades(session?.exercise_grades || [])
+  }, [session?.id])
+
   const runAnalysis = async () => {
     if (!session) return
     setAnalyzing(true)
@@ -447,15 +453,17 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ exercises: session.exercises, workoutName: session.workout_name, calsBurned: session.cals_burned })
       })
-      const data = await res.json()
-      const updates: any = { rating: data.rating, analysis: data.analysis, exercise_grades: data.exerciseGrades||[] }
-      if (data.workoutName) {
-        updates.workout_name = data.workoutName
-        setWorkoutName(data.workoutName)
-      }
+      const text = await res.text()
+      let data: any = {}
+      try { data = JSON.parse(text) } catch { console.error('parse error:', text); setAnalyzing(false); return }
+      const grades = data.exerciseGrades || []
+      setExerciseGrades(grades)
+      const updates: any = { rating: data.rating, analysis: data.analysis }
+      if (grades.length > 0) updates.exercise_grades = grades
+      if (data.workoutName) { updates.workout_name = data.workoutName; setWorkoutName(data.workoutName) }
       await supabase.from('workout_sessions').update(updates).eq('id', session.id)
       onRefresh()
-    } catch {}
+    } catch(e) { console.error('runAnalysis error:', e) }
     setAnalyzing(false)
   }
 
@@ -538,7 +546,7 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
 
       {/* Exercises */}
       {session?.exercises?.map(ex => {
-        const grade = session.exercise_grades?.find((g:any) => g.name.toLowerCase().trim() === ex.name.toLowerCase().trim())
+        const grade = exerciseGrades.find((g:any) => g.name.toLowerCase().trim() === ex.name.toLowerCase().trim())
         return <ActivityCard key={ex.id} w={{...ex, grade: grade?.score, grade_note: grade?.note}} onRemove={()=>removeExercise(ex.id)} onSaveSets={saveSets}/>
       })}
 
