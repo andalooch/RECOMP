@@ -437,6 +437,16 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
 
   const removeExercise = async (id: string) => {
     await supabase.from('exercises').delete().eq('id', id)
+    // If this was the last exercise, clear the analysis too
+    if (session && session.exercises.length <= 1) {
+      await supabase.from('workout_sessions').update({ rating: null, analysis: null }).eq('id', session.id)
+    }
+    onRefresh()
+  }
+
+  const clearAnalysis = async () => {
+    if (!session) return
+    await supabase.from('workout_sessions').update({ rating: null, analysis: null }).eq('id', session.id)
     onRefresh()
   }
 
@@ -469,7 +479,10 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
       {/* AI Analysis */}
       {session?.analysis && (
         <div style={{background:'#0a0f0a',border:'1px solid #1a2a1a',borderRadius:11,padding:'12px 14px',marginBottom:10}}>
-          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#4aff7a',letterSpacing:2,marginBottom:6}}>AI COACHING</div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#4aff7a',letterSpacing:2}}>AI COACHING</div>
+            <button onClick={clearAnalysis} style={{background:'none',border:'none',color:'#2a2a2a',cursor:'pointer',fontSize:12,padding:'0 2px'}}>x</button>
+          </div>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#555',lineHeight:1.7}}>{session.analysis}</div>
         </div>
       )}
@@ -627,18 +640,26 @@ function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; act
           body: JSON.stringify({ text, photo: photoData })
         })
         const data = await res.json()
-        // Get or create session
-        let { data: existing } = await supabase.from('workout_sessions').select('id').eq('user_id',userId).eq('logged_date',activeDate).single()
-        let sessionId = existing?.id
-        if (!sessionId) {
-          const { data: newSession } = await supabase.from('workout_sessions').insert({ user_id:userId, logged_date:activeDate, workout_name:data.workoutName||'Workout', cals_burned:data.calsBurned||0 }).select().single()
-          sessionId = newSession?.id
+        // Get or create session - avoid .single() which throws on no rows
+        let sessionId: string|null = null
+        const { data: existing } = await supabase.from('workout_sessions').select('id').eq('user_id',userId).eq('logged_date',activeDate)
+        if (existing && existing.length > 0) {
+          sessionId = existing[0].id
+          // Update name and cals if AI detected them
+          await supabase.from('workout_sessions').update({ workout_name: data.workoutName||'Workout', cals_burned: data.calsBurned||0 }).eq('id', sessionId)
+        } else {
+          const { data: newSession } = await supabase.from('workout_sessions').insert({ user_id:userId, logged_date:activeDate, workout_name:data.workoutName||'Workout', cals_burned:data.calsBurned||0 }).select('id')
+          sessionId = newSession?.[0]?.id || null
         }
-        if (sessionId && data.exercises) {
+        if (sessionId && data.exercises && data.exercises.length > 0) {
           for (const ex of data.exercises) {
             const aType = getActivityType(ex.name)
             const isCardio = isCardioType(aType)
-            await supabase.from('exercises').insert({ session_id:sessionId, user_id:userId, name:ex.name, type:isCardio?aType:'strength', sets:isCardio?null:ex.sets, duration:ex.duration||null, intensity:ex.intensity||null, calories:ex.calories||null, notes:ex.notes||null })
+            let setsData = ex.sets || []
+            if (isCardio && (!setsData.length || setsData[0]?.weight !== undefined)) {
+              setsData = [{ duration: ex.duration||null, intensity: ex.intensity||null, calories: ex.calories||null, notes: ex.notes||null }]
+            }
+            await supabase.from('exercises').insert({ session_id:sessionId, user_id:userId, name:ex.name, type:isCardio?aType:'strength', sets:setsData })
           }
         }
       }
