@@ -342,16 +342,26 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
     setRatingMeal(null)
   }
 
+  const ratedItems = dayFoods.filter(f=>f.rating)
+  const dailyScore = ratedItems.length > 0
+    ? Math.round((ratedItems.reduce((s,f)=>s+(f.rating||0),0)/ratedItems.length)*10)/10
+    : null
+
   return (
     <div style={{paddingBottom:40}}>
       {ratingMeal && <MealRatingModal meal={{name:ratingMeal.name,items:ratingMeal.items,calories:ratingMeal.calories,protein:ratingMeal.protein,carbs:ratingMeal.carbs,fat:ratingMeal.fat,rating:ratingMeal.rating,ai_analysis:ratingMeal.ai_analysis,itemScores:ratingMeal.itemScores}} onClose={()=>setRatingMeal(null)} onRated={saveRating} forceRefresh={forceRefresh}/>}
       <div style={{margin:'0 14px 12px',background:'#0c0c0c',border:'1px solid #181818',borderRadius:14,padding:'13px 14px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',letterSpacing:1.5}}>DAILY MACROS</div>
-          <div style={{textAlign:'right'}}>
-            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:26,color:calLeft<0?'#ff6b6b':'#e8ff47',lineHeight:1}}>{Math.abs(calLeft)}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#3a3a3a',letterSpacing:1}}>{calLeft<0?'OVER':'CAL LEFT'}</div>
-          </div>
+          {dailyScore ? (
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1}}>NUTRITION SCORE</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:ratingColor(dailyScore),lineHeight:1}}>{dailyScore}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a'}}>/10</div>
+            </div>
+          ) : (
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#1e1e1e',letterSpacing:1}}>RATE MEALS TO SCORE</div>
+          )}
         </div>
         <MacroBar label="Cal" value={totals.calories} goal={MACRO_GOAL.calories} color="#e8ff47"/>
         <MacroBar label="Protein" value={Math.round(totals.protein)} goal={MACRO_GOAL.protein} color="#47c8ff"/>
@@ -825,8 +835,15 @@ export default function HomePage() {
   const totalCals = dayFoods.reduce((s,f)=>s+f.calories,0)
   const totalPro = dayFoods.reduce((s,f)=>s+(+f.protein||0),0)
   const daySession = sessions.find(s=>s.logged_date===activeDate)||null
+  const calsBurned = daySession?.cals_burned||0
+  const calsRemaining = MACRO_GOAL.calories - totalCals + calsBurned
   const isToday = activeDate===todayKey()
   const isFirstDay = activeDate===WEEK[0]
+  // Daily nutrition score = avg of all rated food items
+  const ratedFoods = dayFoods.filter(f=>f.rating)
+  const dailyNutritionScore = ratedFoods.length > 0
+    ? Math.round((ratedFoods.reduce((s,f)=>s+(f.rating||0),0)/ratedFoods.length)*10)/10
+    : null
 
   const shiftDate = (dir: number) => {
     const d = new Date(activeDate+'T12:00:00')
@@ -850,14 +867,40 @@ export default function HomePage() {
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:3,background:'linear-gradient(90deg,#e8ff47,#47c8ff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>RECOMP</div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1.5,marginTop:1}}>208 → 195 · 6′2 · 38YO</div>
           </div>
-          <div style={{display:'flex',gap:5}}>
-            {[[String(totalCals),'CAL','#e8ff47'],[`${Math.round(totalPro)}g`,'PRO','#47c8ff'],[String(daySession?.exercises?.length||0),'EX','#ff9f47'],[daySession?.cals_burned?String(daySession.cals_burned):'—','BURN','#ff6b6b']].map(([v,l,c])=>(
-              <div key={l} style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:7,padding:'5px 6px',textAlign:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,color:c,lineHeight:1}}>{v}</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5}}>{l}</div>
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+            {/* Calories block */}
+            <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 8px'}}>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                <div style={{textAlign:'center'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:'#e8ff47',lineHeight:1}}>{totalCals}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>IN</div>
+                </div>
+                <div style={{width:1,height:20,background:'#1a1a1a'}}/>
+                <div style={{textAlign:'center'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:'#ff6b6b',lineHeight:1}}>{calsBurned||'—'}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>BURN</div>
+                </div>
+                <div style={{width:1,height:20,background:'#1a1a1a'}}/>
+                <div style={{textAlign:'center'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:calsRemaining<0?'#ff6b6b':'#4aff7a',lineHeight:1}}>{Math.abs(calsRemaining)}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>{calsRemaining<0?'OVER':'LEFT'}</div>
+                </div>
               </div>
-            ))}
-            <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href='/auth' }} style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:7,padding:'5px 6px',color:'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer'}}>OUT</button>
+            </div>
+            {/* Protein + nutrition score */}
+            <div style={{display:'flex',gap:4}}>
+              <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 7px',textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:'#47c8ff',lineHeight:1}}>{Math.round(totalPro)}g</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>PRO</div>
+              </div>
+              {dailyNutritionScore && (
+                <div style={{background:'#0c0c0c',border:`1px solid ${ratingColor(dailyNutritionScore)}33`,borderRadius:8,padding:'6px 7px',textAlign:'center'}}>
+                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:ratingColor(dailyNutritionScore),lineHeight:1}}>{dailyNutritionScore}</div>
+                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>NUT</div>
+                </div>
+              )}
+              <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href='/auth' }} style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 7px',color:'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer',alignSelf:'center'}}>OUT</button>
+            </div>
           </div>
         </div>
 
