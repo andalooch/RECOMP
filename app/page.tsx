@@ -1616,7 +1616,6 @@ export default function HomePage() {
 
   if (needsOnboarding && userId) return <OnboardingWizard userId={userId} onComplete={handleOnboardingComplete}/>
 
-  if (!userId) return null
 
   const dayFoods = foods.filter(f=>f.logged_date===activeDate)
   const totalCals = dayFoods.reduce((s,f)=>s+f.calories,0)
