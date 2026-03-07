@@ -837,26 +837,21 @@ function SmartInputBar({ tab, activeDate, userId, onRefresh }: { tab:string; act
           body: JSON.stringify({ text, photo: photoData })
         })
         const data = await res.json()
-        // Get or create session - avoid .single() which throws on no rows
-        let sessionId: string|null = null
-        const { data: existing } = await supabase.from('workout_sessions').select('id').eq('user_id',userId).eq('logged_date',activeDate)
-        if (existing && existing.length > 0) {
-          sessionId = existing[0].id
-          // Update name and cals if AI detected them
-          await supabase.from('workout_sessions').update({ workout_name: data.workoutName||'Workout', cals_burned: data.calsBurned||0 }).eq('id', sessionId)
-        } else {
-          const { data: newSession } = await supabase.from('workout_sessions').insert({ user_id:userId, logged_date:activeDate, workout_name:data.workoutName||'Workout', cals_burned:data.calsBurned||0 }).select('id')
-          sessionId = newSession?.[0]?.id || null
-        }
-        if (sessionId && data.exercises && data.exercises.length > 0) {
-          for (const ex of data.exercises) {
-            const aType = getActivityType(ex.name)
-            const isCardio = isCardioType(aType)
-            let setsData = ex.sets || []
-            if (isCardio && (!setsData.length || setsData[0]?.weight !== undefined)) {
-              setsData = [{ duration: ex.duration||null, intensity: ex.intensity||null, calories: ex.calories||null, notes: ex.notes||null }]
+        // Handle multiple sessions returned by parser
+        const sessionsList = data.sessions || [{ workoutName: data.workoutName||'Workout', calsBurned: data.calsBurned||0, exercises: data.exercises||[] }]
+        for (const sess of sessionsList) {
+          const { data: newSession } = await supabase.from('workout_sessions').insert({ user_id:userId, logged_date:activeDate, workout_name:sess.workoutName||'Workout', cals_burned:sess.calsBurned||0 }).select('id')
+          const sessionId: string|null = newSession?.[0]?.id || null
+          if (sessionId && sess.exercises && sess.exercises.length > 0) {
+            for (const ex of sess.exercises) {
+              const aType = getActivityType(ex.name)
+              const isCardio = isCardioType(aType)
+              let setsData = ex.sets || []
+              if (isCardio && (!setsData.length || setsData[0]?.weight !== undefined)) {
+                setsData = [{ duration: ex.duration||null, intensity: ex.intensity||null, calories: ex.calories||null, notes: ex.notes||null }]
+              }
+              await supabase.from('exercises').insert({ session_id:sessionId, user_id:userId, name:ex.name, type:isCardio?aType:'strength', sets:setsData })
             }
-            await supabase.from('exercises').insert({ session_id:sessionId, user_id:userId, name:ex.name, type:isCardio?aType:'strength', sets:setsData })
           }
         }
       }
