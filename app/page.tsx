@@ -1376,7 +1376,7 @@ export default function HomePage() {
       const uid = data.user.id
       setUserId(uid)
       const { data: profile, error } = await supabase.from('profiles').select('id,macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', uid).maybeSingle()
-      if (error) console.error('profile fetch error:', error)
+      console.log('profile fetch:', { uid, profile, error })
       if (!profile) {
         setNeedsOnboarding(true)
       } else {
