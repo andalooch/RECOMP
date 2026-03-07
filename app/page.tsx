@@ -20,8 +20,8 @@ const WEEK = getPast7Days()
 
 // ── Types ─────────────────────────────────────────────────────────────────
 interface FoodItem { id: string; name: string; calories: number; protein: number; carbs: number; fat: number; meal: string; logged_date: string; rating?: number; ai_analysis?: string }
-interface Exercise { id: string; name: string; type: string; sets?: {weight:string;reps:string}[]; duration?: number; intensity?: string; calories?: number; notes?: string; location?: string }
-interface WorkoutSession { id: string; workout_name: string; rating?: number; cals_burned?: number; analysis?: string; logged_date: string; exercises: Exercise[] }
+interface Exercise { id: string; name: string; type: string; sets?: {weight:string;reps:string}[]; duration?: number; intensity?: string; calories?: number; notes?: string; location?: string; grade?: number; grade_note?: string }
+interface WorkoutSession { id: string; workout_name: string; rating?: number; cals_burned?: number; analysis?: string; logged_date: string; exercises: Exercise[]; exercise_grades?: {name:string;score:number;note:string}[] }
 interface SavedMeal { id: string; name: string; calories: number; protein: number; carbs: number; fat: number; rating?: number }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -264,6 +264,12 @@ function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>v
           </div>
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          {w.grade && (
+            <div style={{textAlign:'center'}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:ratingColor(w.grade),lineHeight:1}}>{w.grade}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5}}>/10</div>
+            </div>
+          )}
           {dirty && <button onClick={saveEdits} style={{background:'#e8ff4718',border:'1px solid #e8ff4744',borderRadius:4,color:'#e8ff47',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'2px 7px',cursor:'pointer'}}>SAVE</button>}
           {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px'}}>x</button>}
         </div>
@@ -290,6 +296,9 @@ function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>v
           )
         })}
         <button onClick={addSet} style={{marginTop:6,background:'transparent',border:'1px solid #141414',borderRadius:4,color:'#2a2a2a',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'3px 10px',cursor:'pointer',letterSpacing:0.5}}>+ SET</button>
+        {w.grade_note && (
+          <div style={{marginTop:8,padding:'7px 9px',background:'#0a0f0a',border:'1px solid #1a2a1a',borderRadius:6,fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a5a3a',lineHeight:1.5}}>{w.grade_note}</div>
+        )}
       </div>
     </div>
   )
@@ -439,7 +448,7 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
         body: JSON.stringify({ exercises: session.exercises, workoutName: session.workout_name, calsBurned: session.cals_burned })
       })
       const data = await res.json()
-      const updates: any = { rating: data.rating, analysis: data.analysis }
+      const updates: any = { rating: data.rating, analysis: data.analysis, exercise_grades: data.exerciseGrades||[] }
       if (data.workoutName) {
         updates.workout_name = data.workoutName
         setWorkoutName(data.workoutName)
@@ -528,9 +537,10 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
       </div>
 
       {/* Exercises */}
-      {session?.exercises?.map(ex => (
-        <ActivityCard key={ex.id} w={ex} onRemove={()=>removeExercise(ex.id)} onSaveSets={saveSets}/>
-      ))}
+      {session?.exercises?.map(ex => {
+        const grade = session.exercise_grades?.find((g:any) => g.name.toLowerCase().trim() === ex.name.toLowerCase().trim())
+        return <ActivityCard key={ex.id} w={{...ex, grade: grade?.score, grade_note: grade?.note}} onRemove={()=>removeExercise(ex.id)} onSaveSets={saveSets}/>
+      })}
 
       {/* AI Analysis */}
       {session?.analysis && (
