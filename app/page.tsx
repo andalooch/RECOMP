@@ -182,7 +182,7 @@ function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; o
 }
 
 // ── Activity Card ─────────────────────────────────────────────────────────
-function ActivityCard({ w, onRemove }: { w:Exercise; onRemove?:()=>void }) {
+function ActivityCard({ w, onRemove, onSaveSets }: { w:Exercise; onRemove?:()=>void; onSaveSets?:(id:string, sets:{weight:string;reps:string}[])=>Promise<void> }) {
   const aType = w.type && w.type!=='strength' ? w.type : getActivityType(w.name)
   const isCardio = isCardioType(aType)
   const accentColor = isCardio ? activityAccentColor(aType) : muscleColor(w.name)
@@ -226,37 +226,70 @@ function ActivityCard({ w, onRemove }: { w:Exercise; onRemove?:()=>void }) {
   }
 
   const sets = w.sets||[]
-  const vol = sets.reduce((s,set)=>{const w2=set.weight==='BW'?208:(+set.weight||0);return s+w2*(+set.reps||0);},0)
-  const nonBW = sets.filter(s=>s.weight!=='BW')
+  const [editSets, setEditSets] = useState(sets.map(s=>({weight:s.weight||'',reps:s.reps||''})))
+  const [dirty, setDirty] = useState(false)
+
+  const vol = editSets.reduce((s,set)=>{const w2=set.weight==='BW'?208:(+set.weight||0);return s+w2*(+set.reps||0);},0)
+  const nonBW = editSets.filter(s=>s.weight!=='BW')
   const maxW = nonBW.length>0 ? Math.max(...nonBW.map(s=>+s.weight||0)) : 'BW'
+
+  const updateSet = (i:number, field:'weight'|'reps', val:string) => {
+    setEditSets(prev=>prev.map((s,j)=>j===i?{...s,[field]:val}:s))
+    setDirty(true)
+  }
+  const addSet = () => {
+    const last = editSets[editSets.length-1]
+    setEditSets(prev=>[...prev,{weight:last?.weight||'',reps:last?.reps||''}])
+    setDirty(true)
+  }
+  const removeSet = (i:number) => {
+    setEditSets(prev=>prev.filter((_,j)=>j!==i))
+    setDirty(true)
+  }
+  const saveEdits = async () => {
+    if (onSaveSets) await onSaveSets(w.id, editSets)
+    setDirty(false)
+  }
+
+  const iStyle: React.CSSProperties = {background:'transparent',border:'none',color:'#999',fontFamily:"'DM Mono',monospace",fontSize:11,width:'100%',outline:'none',padding:'1px 2px'}
+
   return (
-    <div style={{marginBottom:7,background:'#0c0c0c',border:'1px solid #181818',borderRadius:11,overflow:'hidden'}}>
+    <div style={{marginBottom:7,background:'#0c0c0c',border:`1px solid ${dirty?'#2a2a1a':'#181818'}`,borderRadius:11,overflow:'hidden',transition:'border-color 0.2s'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 13px 7px',borderBottom:'1px solid #111'}}>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div style={{width:3,height:14,background:accentColor,borderRadius:2}}/>
           <div>
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:13,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
-            <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2e2e2e',marginTop:1}}>{sets.length} sets · max {maxW}{maxW!=='BW'?'lb':''} · {vol.toLocaleString()} vol</div>
+            <div style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2e2e2e',marginTop:1}}>{editSets.length} sets · max {maxW}{maxW!=='BW'?'lb':''} · {vol.toLocaleString()} vol</div>
           </div>
         </div>
-        {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px'}}>x</button>}
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          {dirty && <button onClick={saveEdits} style={{background:'#e8ff4718',border:'1px solid #e8ff4744',borderRadius:4,color:'#e8ff47',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'2px 7px',cursor:'pointer'}}>SAVE</button>}
+          {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px'}}>x</button>}
+        </div>
       </div>
       <div style={{padding:'5px 13px 9px'}}>
-        <div style={{display:'grid',gridTemplateColumns:'18px 1fr 1fr 1fr',gap:3,marginBottom:3}}>
-          {['','WEIGHT','REPS','VOL'].map((h,i)=>(<div key={i} style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2a2a2a',letterSpacing:1}}>{h}</div>))}
+        <div style={{display:'grid',gridTemplateColumns:'18px 1fr 1fr 1fr 20px',gap:3,marginBottom:3}}>
+          {['','WEIGHT','REPS','VOL',''].map((h,i)=>(<div key={i} style={{fontFamily:"'DM Mono',monospace",fontSize:7,color:'#2a2a2a',letterSpacing:1}}>{h}</div>))}
         </div>
-        {sets.map((set,i)=>{
+        {editSets.map((set,i)=>{
           const w2=set.weight==='BW'?208:(+set.weight||0)
           const sv=w2*(+set.reps||0)
           return (
-            <div key={i} style={{display:'grid',gridTemplateColumns:'18px 1fr 1fr 1fr',gap:3,padding:'3px 0',borderTop:'1px solid #0e0e0e'}}>
+            <div key={i} style={{display:'grid',gridTemplateColumns:'18px 1fr 1fr 1fr 20px',gap:3,padding:'3px 0',borderTop:'1px solid #0e0e0e',alignItems:'center'}}>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,color:'#2a2a2a'}}>{i+1}</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'#999'}}>{set.weight}{set.weight!=='BW'?'lb':''}</div>
-              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:'#999'}}>{set.reps}</div>
+              <div style={{background:'#0a0a0a',borderRadius:4,border:'1px solid #141414',padding:'2px 4px'}}>
+                <input value={set.weight} onChange={e=>updateSet(i,'weight',e.target.value)} style={iStyle} placeholder="wt"/>
+              </div>
+              <div style={{background:'#0a0a0a',borderRadius:4,border:'1px solid #141414',padding:'2px 4px'}}>
+                <input value={set.reps} onChange={e=>updateSet(i,'reps',e.target.value)} type="number" style={iStyle} placeholder="reps"/>
+              </div>
               <div style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:'#3a3a3a'}}>{sv>0?sv.toLocaleString():'—'}</div>
+              <button onClick={()=>removeSet(i)} style={{background:'none',border:'none',color:'#1e1e1e',cursor:'pointer',fontSize:12,padding:0,lineHeight:1}}>x</button>
             </div>
           )
         })}
+        <button onClick={addSet} style={{marginTop:6,background:'transparent',border:'1px solid #141414',borderRadius:4,color:'#2a2a2a',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'3px 10px',cursor:'pointer',letterSpacing:0.5}}>+ SET</button>
       </div>
     </div>
   )
@@ -456,10 +489,14 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
 
   const removeExercise = async (id: string) => {
     await supabase.from('exercises').delete().eq('id', id)
-    // If this was the last exercise, clear the analysis too
     if (session && session.exercises.length <= 1) {
       await supabase.from('workout_sessions').update({ rating: null, analysis: null }).eq('id', session.id)
     }
+    onRefresh()
+  }
+
+  const saveSets = async (id: string, sets: {weight:string;reps:string}[]) => {
+    await supabase.from('exercises').update({ sets }).eq('id', id)
     onRefresh()
   }
 
@@ -492,7 +529,7 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
 
       {/* Exercises */}
       {session?.exercises?.map(ex => (
-        <ActivityCard key={ex.id} w={ex} onRemove={()=>removeExercise(ex.id)}/>
+        <ActivityCard key={ex.id} w={ex} onRemove={()=>removeExercise(ex.id)} onSaveSets={saveSets}/>
       ))}
 
       {/* AI Analysis */}
