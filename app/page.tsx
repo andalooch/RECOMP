@@ -906,6 +906,35 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
   const todayStr = todayKey()
   const todayCheckedIn = weightLogs.length > 0 && weightLogs[0]?.logged_date === todayStr
 
+  // Goal status logic
+  const goalAchieved = (() => {
+    if (!targetWeight || !latestWeight) return false
+    const gt = profile?.goal_type
+    if (gt === 'lose_fat') return latestWeight <= targetWeight
+    if (gt === 'gain_muscle') return latestWeight >= targetWeight
+    if (gt === 'recomp') return Math.abs(latestWeight - targetWeight) <= 1
+    return false
+  })()
+
+  const goalAlert = (() => {
+    if (!targetWeight || !latestWeight || !firstWeight) return null
+    const gt = profile?.goal_type
+    const overshoot = 3 // lb past goal to trigger alert
+    const undershoot = 5 // lb short of goal but going wrong way
+    if (gt === 'lose_fat') {
+      if (latestWeight < targetWeight - overshoot) return { type: 'over', msg: `You're ${(targetWeight - latestWeight).toFixed(1)} lb below your goal. Consider updating your target or macros.` }
+      if (latestWeight > firstWeight + undershoot) return { type: 'under', msg: `Weight is trending up ${(latestWeight - firstWeight).toFixed(1)} lb from start. Check your nutrition targets.` }
+    }
+    if (gt === 'gain_muscle') {
+      if (latestWeight > targetWeight + overshoot) return { type: 'over', msg: `You're ${(latestWeight - targetWeight).toFixed(1)} lb above your goal. Consider updating your target or macros.` }
+      if (latestWeight < firstWeight - undershoot) return { type: 'under', msg: `Weight is trending down ${(firstWeight - latestWeight).toFixed(1)} lb from start. Check your nutrition targets.` }
+    }
+    return null
+  })()
+
+  const [alertDismissed, setAlertDismissed] = useState<string|null>(null)
+  const showAlert = goalAlert && alertDismissed !== goalAlert.msg
+
   // Pre-fill check-in weight with today's entry if already logged
   useEffect(() => {
     const todayLog = weightLogs.find((w:any) => w.logged_date === todayStr)
@@ -997,18 +1026,24 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             </div>
 
             {/* Progress bar start → goal */}
-            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ height: 4, background: '#111', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
-                  <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #4aff7a, #47c8ff)', width: `${Math.min(100, Math.max(0, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100)).toFixed(0)}%`, transition: 'width 0.4s' }}/>
+            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (() => {
+              const totalDist = Math.abs(firstWeight - targetWeight)
+              const goingRight = profile?.goal_type === 'gain_muscle' ? latestWeight >= firstWeight : latestWeight <= firstWeight
+              const traveled = goingRight ? Math.abs(firstWeight - latestWeight) : 0
+              const pct = Math.min(100, (traveled / totalDist) * 100)
+              return (
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ height: 4, background: '#111', borderRadius: 2, overflow: 'hidden', marginBottom: 4 }}>
+                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#4aff7a' : 'linear-gradient(90deg, #47c8ff, #4aff7a)', width: `${pct.toFixed(0)}%`, transition: 'width 0.4s' }}/>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222' }}>
+                    <span>{firstWeight} lb</span>
+                    <span style={{ color: goalAchieved ? '#4aff7a' : '#555' }}>{goalAchieved ? '✓ GOAL HIT' : pct.toFixed(0) + '% there'}</span>
+                    <span>{targetWeight} lb</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#222' }}>
-                  <span>{firstWeight} lb</span>
-                  <span style={{ color: '#4aff7a' }}>{Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}% there</span>
-                  <span>{targetWeight} lb</span>
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Secondary stats row */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
@@ -1024,6 +1059,34 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
               ))}
             </div>
           </div>
+
+          {/* ── GOAL ACHIEVED BADGE ── */}
+          {goalAchieved && (
+            <div style={{ background: 'linear-gradient(135deg, #0a1a0a, #0c0c0c)', border: '1px solid #4aff7a55', borderRadius: 14, padding: '20px', marginBottom: 10, textAlign: 'center' as const }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🏆</div>
+              <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 26, color: '#4aff7a', letterSpacing: 3, marginBottom: 4 }}>GOAL ACHIEVED</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: '#2a4a2a', marginBottom: 12 }}>
+                {profile.full_name ? profile.full_name.split(' ')[0] + ', you' : 'You'} hit {targetWeight} lb — {firstWeight && latestWeight ? Math.abs(firstWeight - latestWeight).toFixed(1) + ' lb ' + (latestWeight < firstWeight ? 'lost' : 'gained') + ' from ' + firstWeight + ' lb' : 'goal reached'}
+              </div>
+              <button onClick={() => setSection('edit')} style={{ background: '#4aff7a22', border: '1px solid #4aff7a44', borderRadius: 8, color: '#4aff7a', fontFamily: "'DM Mono',monospace", fontSize: 9, padding: '8px 18px', cursor: 'pointer', letterSpacing: 1 }}>SET NEW GOAL →</button>
+            </div>
+          )}
+
+          {/* ── GOAL ALERT ── */}
+          {showAlert && (
+            <div style={{ background: goalAlert!.type === 'over' ? '#1a0a0a' : '#1a1a0a', border: `1px solid ${goalAlert!.type === 'over' ? '#ff6b6b44' : '#e8ff4744'}`, borderRadius: 14, padding: '14px 16px', marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ fontSize: 16, lineHeight: 1, marginTop: 1 }}>{goalAlert!.type === 'over' ? '⚠️' : '📉'}</div>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: goalAlert!.type === 'over' ? '#ff6b6b' : '#e8ff47', letterSpacing: 1, marginBottom: 4 }}>HEADS UP</div>
+                    <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 11, color: '#555', lineHeight: 1.5 }}>{goalAlert!.msg}</div>
+                  </div>
+                </div>
+                <button onClick={() => setAlertDismissed(goalAlert!.msg)} style={{ background: 'none', border: 'none', color: '#333', cursor: 'pointer', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>×</button>
+              </div>
+            </div>
+          )}
 
           {/* Weight log card — inline entry + full history */}
           <div style={{ background: '#0c0c0c', border: '1px solid #1a1a1a', borderRadius: 14, padding: '16px', marginBottom: 10 }}>
@@ -1047,17 +1110,21 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             )}
 
             {/* Progress bar */}
-            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ height: 3, background: '#141414', borderRadius: 2, overflow: 'hidden', marginBottom: 3 }}>
-                  <div style={{ height: '100%', borderRadius: 2, background: '#4aff7a', width: `${Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}%` }}/>
+            {targetWeight && firstWeight && latestWeight && firstWeight !== targetWeight && (() => {
+              const goingRight = profile?.goal_type === 'gain_muscle' ? latestWeight >= firstWeight : latestWeight <= firstWeight
+              const pct = Math.min(100, goingRight ? Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100 : 0)
+              return (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ height: 3, background: '#141414', borderRadius: 2, overflow: 'hidden', marginBottom: 3 }}>
+                    <div style={{ height: '100%', borderRadius: 2, background: goalAchieved ? '#4aff7a' : '#47c8ff', width: `${pct.toFixed(0)}%` }}/>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e' }}>
+                    <span>{firstWeight} lb start</span>
+                    <span>{goalAchieved ? '✓ done' : pct.toFixed(0) + '% to ' + targetWeight + ' lb'}</span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1e1e1e' }}>
-                  <span>{firstWeight} lb start</span>
-                  <span>{Math.min(100, Math.abs(firstWeight - latestWeight) / Math.abs(firstWeight - targetWeight) * 100).toFixed(0)}% to {targetWeight} lb</span>
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* Quick log row */}
             <div style={{ display: 'flex', gap: 8, marginBottom: weightLogs.length > 0 ? 14 : 0, paddingBottom: weightLogs.length > 0 ? 14 : 0, borderBottom: weightLogs.length > 0 ? '1px solid #111' : 'none' }}>
