@@ -1474,8 +1474,8 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
 
 // ── Main App ──────────────────────────────────────────────────────────────
 function LandingPage() {
-  const [scrolled, setScrolled] = React.useState(false)
-  React.useEffect(() => {
+  const [scrolled, setScrolled] = useState(false)
+  useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', fn)
     return () => window.removeEventListener('scroll', fn)
