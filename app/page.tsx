@@ -867,40 +867,37 @@ export default function HomePage() {
             <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:24,letterSpacing:3,background:'linear-gradient(90deg,#e8ff47,#47c8ff)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',lineHeight:1}}>RECOMP</div>
             <div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',letterSpacing:1.5,marginTop:1}}>208 → 195 · 6′2 · 38YO</div>
           </div>
-          <div style={{display:'flex',gap:4,alignItems:'center'}}>
-            {/* Calories block */}
-            <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 8px'}}>
-              <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                <div style={{textAlign:'center'}}>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:'#e8ff47',lineHeight:1}}>{totalCals}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>IN</div>
-                </div>
-                <div style={{width:1,height:20,background:'#1a1a1a'}}/>
-                <div style={{textAlign:'center'}}>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:'#ff6b6b',lineHeight:1}}>{calsBurned||'—'}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>BURN</div>
-                </div>
-                <div style={{width:1,height:20,background:'#1a1a1a'}}/>
-                <div style={{textAlign:'center'}}>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:calsRemaining<0?'#ff6b6b':'#4aff7a',lineHeight:1}}>{Math.abs(calsRemaining)}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>{calsRemaining<0?'OVER':'LEFT'}</div>
-                </div>
+          <div style={{display:'flex',gap:4,alignItems:'stretch'}}>
+            {/* Calories In / Burned / Remaining */}
+            <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 9px',display:'flex',gap:9,alignItems:'center'}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#e8ff47',lineHeight:1}}>{totalCals}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>IN</div>
+              </div>
+              <div style={{width:1,height:22,background:'#1a1a1a'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:'#ff6b6b',lineHeight:1}}>{calsBurned||0}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>BURN</div>
+              </div>
+              <div style={{width:1,height:22,background:'#1a1a1a'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:calsRemaining<0?'#ff6b6b':'#4aff7a',lineHeight:1}}>{Math.abs(calsRemaining)}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>{calsRemaining<0?'OVER':'LEFT'}</div>
               </div>
             </div>
-            {/* Protein + nutrition score */}
-            <div style={{display:'flex',gap:4}}>
-              <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 7px',textAlign:'center'}}>
-                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:'#47c8ff',lineHeight:1}}>{Math.round(totalPro)}g</div>
-                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>PRO</div>
+            {/* Nutrition + Workout scores */}
+            <div style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 9px',display:'flex',gap:9,alignItems:'center'}}>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:dailyNutritionScore?ratingColor(dailyNutritionScore):'#2a2a2a',lineHeight:1}}>{dailyNutritionScore||'N/A'}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>NUT</div>
               </div>
-              {dailyNutritionScore && (
-                <div style={{background:'#0c0c0c',border:`1px solid ${ratingColor(dailyNutritionScore)}33`,borderRadius:8,padding:'6px 7px',textAlign:'center'}}>
-                  <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:15,color:ratingColor(dailyNutritionScore),lineHeight:1}}>{dailyNutritionScore}</div>
-                  <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>NUT</div>
-                </div>
-              )}
-              <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href='/auth' }} style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 7px',color:'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer',alignSelf:'center'}}>OUT</button>
+              <div style={{width:1,height:22,background:'#1a1a1a'}}/>
+              <div style={{textAlign:'center'}}>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:16,color:daySession?.rating?ratingColor(daySession.rating):'#2a2a2a',lineHeight:1}}>{daySession?.rating||'N/A'}</div>
+                <div style={{fontFamily:"'DM Mono',monospace",fontSize:6,color:'#2a2a2a',letterSpacing:0.5,marginTop:1}}>WRK</div>
+              </div>
             </div>
+            <button onClick={async()=>{ await supabase.auth.signOut(); window.location.href='/auth' }} style={{background:'#0c0c0c',border:'1px solid #141414',borderRadius:8,padding:'6px 7px',color:'#333',fontFamily:"'DM Mono',monospace",fontSize:8,cursor:'pointer'}}>OUT</button>
           </div>
         </div>
 
