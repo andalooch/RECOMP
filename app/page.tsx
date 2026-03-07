@@ -1484,29 +1484,39 @@ export default function HomePage() {
   const [macroGoal, setMacroGoal] = useState(MACRO_GOAL)
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      if (!data.user) { window.location.href = '/auth'; return }
-      const uid = data.user.id
-      setUserId(uid)
+    const init = async () => {
+      // Use getSession first (local/cached) — avoids redirect loop from network failures
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+
+      if (!uid) {
+        // Double-check with getUser in case session is stale
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) { window.location.href = '/auth'; return }
+        setUserId(user.id)
+        await loadProfile(user.id)
+      } else {
+        setUserId(uid)
+        await loadProfile(uid)
+      }
+    }
+
+    const loadProfile = async (uid: string) => {
       const { data: profile, error } = await supabase.from('profiles').select('id,macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', uid).maybeSingle()
-      console.log('profile fetch:', { uid, profile, error })
-      // If error or no row → treat as new user only if no profile row exists
-      // A 400 error likely means RLS or schema issue — don't force onboarding
       if (error && error.code !== 'PGRST116') {
-        // Real error — skip onboarding, go straight to app with defaults
-        console.error('profile error, skipping onboarding:', error)
+        console.error('profile error:', error)
         setLoading(false)
         return
       }
       if (!profile) {
         setNeedsOnboarding(true)
-      } else {
-        if (profile.macro_calories) {
-          setMacroGoal({ calories: profile.macro_calories, protein: profile.macro_protein, carbs: profile.macro_carbs, fat: profile.macro_fat })
-        }
+      } else if (profile.macro_calories) {
+        setMacroGoal({ calories: profile.macro_calories, protein: profile.macro_protein, carbs: profile.macro_carbs, fat: profile.macro_fat })
       }
       setLoading(false)
-    })
+    }
+
+    init()
   }, [])
 
   const handleOnboardingComplete = (profile: any) => {
