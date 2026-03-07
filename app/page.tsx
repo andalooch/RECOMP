@@ -520,9 +520,22 @@ function SessionCard({ session, userId, onRefresh, templates, onTemplatesChange 
   const saveAsTemplate = async () => {
     setSavingTemplate(true)
     const name = workoutName || 'My Workout'
-    const exercises = session.exercises.map(e => ({ name: e.name, type: e.type, sets: isCardioType(getActivityType(e.name)) ? [{duration:'',intensity:'',calories:'',notes:''}] : [{weight:'',reps:''}] }))
-    await supabase.from('workout_templates').insert({ user_id: userId, name, exercises })
-    const {data} = await supabase.from('workout_templates').select('*').eq('user_id', userId).order('created_at', {ascending:false})
+    // Always strip weights/reps — save exercise names and types only
+    const exercises = session.exercises.map(e => ({
+      name: e.name,
+      type: e.type,
+      sets: isCardioType(getActivityType(e.name))
+        ? [{ duration: '', intensity: '', calories: '', notes: '' }]
+        : [{ weight: '', reps: '' }]
+    }))
+    // Check if template with same name exists — update it instead of duplicating
+    const existing = templates.find(t => t.name.toLowerCase() === name.toLowerCase())
+    if (existing) {
+      await supabase.from('workout_templates').update({ exercises }).eq('id', existing.id)
+    } else {
+      await supabase.from('workout_templates').insert({ user_id: userId, name, exercises })
+    }
+    const { data } = await supabase.from('workout_templates').select('*').eq('user_id', userId).order('created_at', { ascending: false })
     onTemplatesChange(data || [])
     setSavingTemplate(false)
     setTemplateSaved(true)
@@ -531,10 +544,23 @@ function SessionCard({ session, userId, onRefresh, templates, onTemplatesChange 
 
   const loadTemplate = async (template: {id:string;name:string;exercises:any[]}) => {
     setShowTemplates(false)
-    await supabase.from('workout_sessions').update({ workout_name: template.name }).eq('id', session.id)
+    // Clear all existing exercises from this session first
+    await supabase.from('exercises').delete().eq('session_id', session.id)
+    // Set the workout name
+    await supabase.from('workout_sessions').update({ workout_name: template.name, cals_burned: 0 }).eq('id', session.id)
     setWorkoutName(template.name)
+    setCalsBurned(0)
+    // Insert fresh blank exercises from template
     for (const ex of template.exercises) {
-      await supabase.from('exercises').insert({ session_id: session.id, user_id: userId, name: ex.name, type: ex.type || 'strength', sets: ex.sets || [{weight:'',reps:''}] })
+      await supabase.from('exercises').insert({
+        session_id: session.id,
+        user_id: userId,
+        name: ex.name,
+        type: ex.type || 'strength',
+        sets: isCardioType(ex.type || getActivityType(ex.name))
+          ? [{ duration: '', intensity: '', calories: '', notes: '' }]
+          : [{ weight: '', reps: '' }]
+      })
     }
     onRefresh()
   }
