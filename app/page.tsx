@@ -888,22 +888,26 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
 
   const displayMacros = recalcPreview || { calories: profile?.macro_calories, protein: profile?.macro_protein, carbs: profile?.macro_carbs, fat: profile?.macro_fat }
 
-  // Weight trend calc
+  // Weight trend calc — cast all weights to numbers (Supabase returns numeric as string)
   const sortedLogs = [...weightLogs].sort((a,b) => a.logged_date.localeCompare(b.logged_date))
-  const firstWeight = sortedLogs[0]?.weight_lb
-  const latestWeight = sortedLogs[sortedLogs.length-1]?.weight_lb
-  const totalChange = firstWeight && latestWeight ? (latestWeight - firstWeight) : null
-  const targetWeight = profile?.target_weight_lb
-  const toGoal = latestWeight && targetWeight ? (latestWeight - targetWeight) : null
-  const todayCheckedIn = weightLogs.some(w => w.logged_date === todayKey())
+  const firstWeight = sortedLogs[0] ? +sortedLogs[0].weight_lb : null
+  const latestWeight = sortedLogs[sortedLogs.length-1] ? +sortedLogs[sortedLogs.length-1].weight_lb : null
+  const totalChange = firstWeight !== null && latestWeight !== null && sortedLogs.length > 1 ? +(latestWeight - firstWeight).toFixed(1) : null
+  const targetWeight = profile?.target_weight_lb ? +profile.target_weight_lb : null
+  const toGoal = latestWeight !== null && targetWeight ? +(latestWeight - targetWeight).toFixed(1) : null
+  const todayStr = todayKey()
+  const todayCheckedIn = weightLogs.some((w:any) => w.logged_date === todayStr)
 
   // Pre-fill check-in with today's value if already logged
   useEffect(() => {
     if (section === 'checkin') {
-      const todayLog = weightLogs.find((w:any) => w.logged_date === todayKey())
+      const todayLog = weightLogs.find((w:any) => w.logged_date === todayStr)
       if (todayLog) {
-        setCheckInWeight(String(todayLog.weight_lb))
+        setCheckInWeight(String(+todayLog.weight_lb))
         setCheckInNotes(todayLog.notes || '')
+      } else {
+        setCheckInWeight('')
+        setCheckInNotes('')
       }
     }
   }, [section, weightLogs])
@@ -1028,7 +1032,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
               value={checkInWeight}
               onChange={e => setCheckInWeight(e.target.value)}
               placeholder={todayCheckedIn
-                ? String(weightLogs.find((w:any) => w.logged_date === todayKey())?.weight_lb || '')
+                ? String(+weightLogs.find((w:any) => w.logged_date === todayStr)?.weight_lb || '')
                 : latestWeight ? String(latestWeight) : 'e.g. 207.4'}
               type="number" step="0.1"
               style={{ ...inputStyle, fontSize: 22, padding: '14px', marginBottom: 10, color: '#ccc', textAlign: 'center' as const }}
@@ -1037,7 +1041,7 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
             <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#2a2a2a', letterSpacing: 1, marginBottom: 6 }}>NOTES (OPTIONAL)</div>
             <input value={checkInNotes} onChange={e => setCheckInNotes(e.target.value)}
               placeholder={todayCheckedIn
-                ? weightLogs.find((w:any) => w.logged_date === todayKey())?.notes || 'Add a note...'
+                ? weightLogs.find((w:any) => w.logged_date === todayStr)?.notes || 'Add a note...'
                 : 'e.g. feeling lean, held water...'}
               style={{ ...inputStyle, marginBottom: 14 }}/>
 
@@ -1046,8 +1050,8 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
               <div style={{ marginBottom: 14, padding: '10px 12px', background: '#080808', border: '1px solid #141414', borderRadius: 8 }}>
                 {(() => {
                   const ref = todayCheckedIn
-                    ? weightLogs.find((w:any) => w.logged_date !== todayKey())?.weight_lb ?? latestWeight
-                    : latestWeight ?? profile?.weight_lb
+                    ? weightLogs.find((w:any) => w.logged_date !== todayStr && w.weight_lb) ? +weightLogs.find((w:any) => w.logged_date !== todayStr)?.weight_lb : latestWeight
+                    : latestWeight ?? (profile?.weight_lb ? +profile.weight_lb : null)
                   if (!ref) return null
                   const delta = +checkInWeight - ref
                   return (
@@ -1101,8 +1105,8 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
               {/* Rows */}
               {weightLogs.map((w: any, i: number) => {
                 const prev = weightLogs[i + 1]
-                const delta = prev ? w.weight_lb - prev.weight_lb : null
-                const isToday = w.logged_date === todayKey()
+                const delta = prev ? +(+w.weight_lb - +prev.weight_lb).toFixed(1) : null
+                const isToday = w.logged_date === todayStr
                 return (
                   <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #0f0f0f' : 'none', gap: 10 }}>
                     {/* Date */}
