@@ -1577,13 +1577,14 @@ export default function HomePage() {
 
     // getUser() validates token server-side — source of truth
     supabase.auth.getUser().then(async ({ data, error }) => {
+      console.log('getUser result:', { user: data?.user?.id, error })
       if (error || !data.user) {
         await supabase.auth.signOut()
         setLoading(false)
         return
       }
-      setUserId(data.user.id)
       userIdRef.current = data.user.id
+      setUserId(data.user.id)
       await loadProfile(data.user.id)
     })
   }, [])
@@ -1614,6 +1615,7 @@ export default function HomePage() {
     </div>
   )
 
+  console.log('render state:', { loading, needsOnboarding, userId, userIdRef: userIdRef.current })
   if (needsOnboarding) {
     const uid = userId || userIdRef.current
     if (!uid) return <LandingPage />
