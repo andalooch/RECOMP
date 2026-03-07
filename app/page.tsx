@@ -824,9 +824,17 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
   const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }))
 
   const previewMacros = () => {
-    const heightIn = form.height_in || 0
-    if (!form.age || !form.weight_lb || !heightIn || !form.goal_type || !form.pace) return
-    const m = calculateMacros({ age: +form.age, heightIn: +heightIn, weightLb: +form.weight_lb, goalType: form.goal_type, pace: form.pace })
+    const heightIn = +(form.height_in || 0)
+    const age = +(form.age || 0)
+    const weightLb = +(form.weight_lb || 0)
+    const missing: string[] = []
+    if (!age) missing.push('age')
+    if (!weightLb) missing.push('weight')
+    if (!heightIn) missing.push('height')
+    if (!form.goal_type) missing.push('goal')
+    if (!form.pace) missing.push('pace')
+    if (missing.length > 0) { alert('Please fill in: ' + missing.join(', ')); return }
+    const m = calculateMacros({ age, heightIn, weightLb, goalType: form.goal_type, pace: form.pace })
     setRecalcPreview(m)
   }
 
@@ -857,11 +865,10 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
     // Update profile current weight
     await supabase.from('profiles').update({ weight_lb: +checkInWeight }).eq('id', userId)
     setProfile((p: any) => ({ ...p, weight_lb: +checkInWeight }))
+    await loadData()
     setCheckInWeight('')
     setCheckInNotes('')
     setCheckInSaving(false)
-    setSection('overview')
-    await loadData()
   }
 
   const deleteWeightLog = async (id: string) => {
@@ -1104,8 +1111,10 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
 
               {/* Rows */}
               {weightLogs.map((w: any, i: number) => {
-                const prev = weightLogs[i + 1]
-                const delta = prev ? +(+w.weight_lb - +prev.weight_lb).toFixed(1) : null
+                const prev = weightLogs[i + 1]  // weightLogs is newest-first, so [i+1] is older — correct for delta
+                const wt = parseFloat(w.weight_lb)
+                const delta = prev ? parseFloat((wt - parseFloat(prev.weight_lb)).toFixed(1)) : null
+                const isStart = i === weightLogs.length - 1
                 const isToday = w.logged_date === todayStr
                 return (
                   <div key={w.id} style={{ display: 'flex', alignItems: 'center', padding: '8px 0', borderBottom: i < weightLogs.length - 1 ? '1px solid #0f0f0f' : 'none', gap: 10 }}>
@@ -1114,13 +1123,13 @@ function ProfileTab({ userId, macroGoal, onMacrosUpdated }: { userId: string; ma
                       <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, color: isToday ? '#888' : '#333' }}>
                         {new Date(w.logged_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                         {isToday && <span style={{ color: '#e8ff47', marginLeft: 5 }}>·today</span>}
-                        {i === weightLogs.length - 1 && !isToday && <span style={{ color: '#222', marginLeft: 5 }}>·start</span>}
+                        {isStart && !isToday && <span style={{ color: '#444', marginLeft: 5 }}>·start</span>}
                       </div>
                       {w.notes && <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#222', marginTop: 1 }}>{w.notes}</div>}
                     </div>
                     {/* Weight */}
                     <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: isToday ? '#bbb' : '#444', minWidth: 60, textAlign: 'right' as const }}>
-                      {w.weight_lb}<span style={{ fontSize: 9, color: '#2a2a2a' }}> lb</span>
+                      {wt}<span style={{ fontSize: 9, color: '#2a2a2a' }}> lb</span>
                     </div>
                     {/* Delta */}
                     <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 9, minWidth: 40, textAlign: 'right' as const, color: delta === null ? '#1a1a1a' : delta < 0 ? '#4aff7a' : delta > 0 ? '#ff6b6b' : '#333' }}>
