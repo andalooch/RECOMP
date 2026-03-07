@@ -1,51 +1,96 @@
+import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { NextRequest, NextResponse } from 'next/server'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const client = new Anthropic()
 
-const SYSTEM_PROMPT = `You are a nutrition and fitness logger. Parse natural language food and workout descriptions.
+export async function POST(request: Request) {
+  const { text, photo } = await request.json()
 
-Portion handling:
-- "handful" = ~30-40g (cheese=110cal, nuts=170cal, berries=35cal)
-- "decent amount" = 1.3x standard, "a ton of" = 1.75x, "a bit of" = 0.5x
-- "couple" = 2, "few" = 3-4
-- Parse ALL items in one sentence as separate entries
-- Know branded products: Mission Low Carb Wrap = 70cal 5p 19c 3f, Premier Protein shake = 160cal 30p 4c 3f, etc.
+  const messages: any[] = []
 
-For FOOD return ONLY this JSON (no markdown):
-{"type":"food","meal":"Breakfast","items":[{"name":"4 whole eggs","calories":280,"protein":24,"carbs":0,"fat":20},{"name":"3 egg whites","calories":51,"protein":11,"carbs":0,"fat":0},{"name":"Mission Low Carb Wrap","calories":70,"protein":5,"carbs":19,"fat":3}],"summary":"3 items to Breakfast — 401 cal, 40g protein"}
-
-For WORKOUT return ONLY this JSON (no markdown):
-{"type":"workout","workoutName":"Chest & Triceps","rating":8.2,"calsBurned":420,"analysis":"2-3 sentence critique of the session.","exercises":[{"name":"Bench Press","sets":[{"weight":"185","reps":"8"},{"weight":"185","reps":"7"}]}],"summary":"Workout logged — 420 cal burned"}`
-
-export async function POST(req: NextRequest) {
-  try {
-    const { message, userGoals } = await req.json()
-    if (!message) return NextResponse.json({ error: 'No message' }, { status: 400 })
-
-    const systemWithGoals = userGoals
-      ? `${SYSTEM_PROMPT}\n\nUser goals: ${userGoals.calories} cal, ${userGoals.protein}g protein, ${userGoals.carbs}g carbs, ${userGoals.fat}g fat daily.`
-      : SYSTEM_PROMPT
-
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1000,
-      system: systemWithGoals,
-      messages: [{ role: 'user', content: message }],
+  if (photo) {
+    messages.push({
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: photo } },
+        { type: 'text', text: `Parse the workout from this image${text ? ` and description: "${text}"` : ''}. Return JSON only, no markdown.` }
+      ]
     })
+  } else {
+    messages.push({
+      role: 'user',
+      content: `Parse this workout log: "${text}". Return JSON only, no markdown.`
+    })
+  }
 
-    const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim()
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 2000,
+    system: `You are a workout log parser. Parse workout descriptions into one or more distinct sessions.
 
-    // Extract JSON robustly
-    let parsed
-    try { parsed = JSON.parse(text) } catch {
-      const s = text.indexOf('{'), e = text.lastIndexOf('}')
-      if (s !== -1 && e > s) parsed = JSON.parse(text.slice(s, e + 1))
-      else throw new Error('No JSON in response')
+CRITICAL: If the input contains multiple distinct workout types (e.g. a strength session AND a cardio activity), split them into SEPARATE sessions in the sessions array. Do NOT combine them into one session.
+
+Examples of what should be split:
+- "back and biceps workout + ran 3 miles" → 2 sessions: "Back & Biceps" and "Running"
+- "lifted chest then did 30 min cycling" → 2 sessions: "Chest" and "Cycling"
+- "yoga this morning, lifting tonight" → 2 sessions: "Yoga" and "Lifting"
+
+Common input formats to handle:
+- "bench press 135x10 185x8 205x6" → 3 sets with different weights
+- "3x10 bench at 185" → 3 sets of 10 at 185
+- "cycling 45 min moderate" → cardio activity
+- "ran 3 miles 28 minutes" → running cardio
+
+Return ONLY valid JSON in this exact format, no markdown:
+{
+  "sessions": [
+    {
+      "workoutName": "Back & Biceps",
+      "calsBurned": 420,
+      "exercises": [
+        {
+          "name": "Lat Pulldown",
+          "type": "strength",
+          "sets": [
+            {"weight": "120", "reps": "10"},
+            {"weight": "130", "reps": "8"}
+          ]
+        }
+      ]
+    },
+    {
+      "workoutName": "Running",
+      "calsBurned": 310,
+      "exercises": [
+        {
+          "name": "Running",
+          "type": "run",
+          "sets": [{"duration": 28, "intensity": "Moderate", "calories": 310, "notes": "3 miles"}]
+        }
+      ]
     }
+  ]
+}
 
-    return NextResponse.json(parsed)
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 })
+Rules:
+- Always return a "sessions" array, even if there is only one session
+- workoutName: infer from exercises (rows/pulldowns/curls → "Back & Biceps", bench/flyes → "Chest", etc.)
+- calsBurned: estimate per session. Strength 300-600 cal/hr, running ~100 cal/mile, cycling ~400-600 cal/hr
+- Strength sets: weight and reps are always strings (e.g. "185", "10")
+- Cardio: sets array with one object: duration (mins), intensity, calories, notes`,
+    messages
+  })
+
+  const raw = response.content[0].type === 'text' ? response.content[0].text : '{}'
+  const clean = raw.replace(/```json|```/g, '').trim()
+
+  try {
+    const parsed = JSON.parse(clean)
+    // Support both new {sessions:[]} format and old {workoutName, exercises} format
+    if (parsed.sessions) return NextResponse.json(parsed)
+    return NextResponse.json({ sessions: [parsed] })
+  } catch {
+    return NextResponse.json({ sessions: [{ workoutName: 'Workout', calsBurned: 0, exercises: [] }] })
   }
 }
+
