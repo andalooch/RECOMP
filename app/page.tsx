@@ -169,7 +169,21 @@ function ActivityCard({ w, onRemove }: { w:Exercise; onRemove?:()=>void }) {
   const accentColor = isCardio ? activityAccentColor(aType) : muscleColor(w.name)
   const icon = activityIcon(aType)
 
+  // For cardio stored via manual add, fields may be in sets[0]
+  const cardioData = isCardio ? (w.sets?.[0] as any)||{} : {}
+  const duration = w.duration || cardioData.duration
+  const intensity = w.intensity || cardioData.intensity
+  const calories = w.calories || cardioData.calories
+  const notes = w.notes || cardioData.notes
+  const location = w.location || cardioData.location
+
   if (isCardio) {
+    const cd = (w.sets&&w.sets[0]) ? w.sets[0] as any : {}
+    const dur = w.duration || cd.duration
+    const inten = w.intensity || cd.intensity
+    const cal = w.calories || cd.calories
+    const loc = w.location || cd.location
+    const note = w.notes || cd.notes
     return (
       <div style={{marginBottom:7,background:'#0c0c0c',border:`1px solid ${accentColor}22`,borderLeft:`3px solid ${accentColor}`,borderRadius:11,overflow:'hidden'}}>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'11px 13px'}}>
@@ -178,12 +192,12 @@ function ActivityCard({ w, onRemove }: { w:Exercise; onRemove?:()=>void }) {
             <div>
               <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:14,letterSpacing:1.5,color:'#bbb'}}>{w.name.toUpperCase()}</div>
               <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap'}}>
-                {w.duration&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:accentColor,background:accentColor+'18',padding:'2px 7px',borderRadius:4}}>{w.duration} min</span>}
-                {w.intensity&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#555',background:'#141414',padding:'2px 7px',borderRadius:4}}>{w.intensity}</span>}
-                {w.calories&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#ff6b6b',background:'#ff6b6b15',padding:'2px 7px',borderRadius:4}}>{w.calories} cal</span>}
-                {w.location&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333',background:'#111',padding:'2px 7px',borderRadius:4}}>{w.location}</span>}
+                {dur&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:accentColor,background:accentColor+'18',padding:'2px 7px',borderRadius:4}}>{dur} min</span>}
+                {inten&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#555',background:'#141414',padding:'2px 7px',borderRadius:4}}>{inten}</span>}
+                {cal&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#ff6b6b',background:'#ff6b6b15',padding:'2px 7px',borderRadius:4}}>{cal} cal</span>}
+                {loc&&<span style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333',background:'#111',padding:'2px 7px',borderRadius:4}}>{loc}</span>}
               </div>
-              {w.notes&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',marginTop:5,lineHeight:1.5}}>{w.notes}</div>}
+              {note&&<div style={{fontFamily:"'DM Mono',monospace",fontSize:8,color:'#2a2a2a',marginTop:5,lineHeight:1.5}}>{note}</div>}
             </div>
           </div>
           {onRemove&&<button onClick={onRemove} style={{background:'none',border:'none',color:'#222',cursor:'pointer',fontSize:14,padding:'0 3px',flexShrink:0}}>x</button>}
@@ -232,7 +246,7 @@ function ActivityCard({ w, onRemove }: { w:Exercise; onRemove?:()=>void }) {
 // ── Food Tab ──────────────────────────────────────────────────────────────
 function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; activeDate:string; userId:string; onRefresh:()=>void }) {
   const [modal, setModal] = useState<string|null>(null)
-  const [ratingItem, setRatingItem] = useState<FoodItem|null>(null)
+  const [ratingMeal, setRatingMeal] = useState<{name:string;calories:number;protein:number;carbs:number;fat:number;rating?:number;ai_analysis?:string;slot:string}|null>(null)
 
   const dayFoods = foods.filter(f => f.logged_date === activeDate)
   const meals = MEAL_SLOTS.reduce((a,m) => ({...a,[m]:dayFoods.filter(f=>f.meal===m)}), {} as Record<string,FoodItem[]>)
@@ -248,15 +262,19 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
     onRefresh()
   }
   const saveRating = async (result: {score:number;notes:string}) => {
-    if (!ratingItem) return
-    await supabase.from('food_logs').update({ rating: result.score, ai_analysis: result.notes }).eq('id', ratingItem.id)
+    if (!ratingMeal) return
+    // Save rating to all items in the meal slot
+    const slotFoods = meals[ratingMeal.slot]||[]
+    for (const f of slotFoods) {
+      await supabase.from('food_logs').update({ rating: result.score, ai_analysis: result.notes }).eq('id', f.id)
+    }
     onRefresh()
-    setRatingItem(null)
+    setRatingMeal(null)
   }
 
   return (
     <div style={{paddingBottom:40}}>
-      {ratingItem && <MealRatingModal meal={{name:ratingItem.name,calories:ratingItem.calories,protein:ratingItem.protein,carbs:ratingItem.carbs,fat:ratingItem.fat,rating:ratingItem.rating,ai_analysis:ratingItem.ai_analysis}} onClose={()=>setRatingItem(null)} onRated={saveRating}/>}
+      {ratingMeal && <MealRatingModal meal={{name:ratingMeal.name,calories:ratingMeal.calories,protein:ratingMeal.protein,carbs:ratingMeal.carbs,fat:ratingMeal.fat,rating:ratingMeal.rating,ai_analysis:ratingMeal.ai_analysis}} onClose={()=>setRatingMeal(null)} onRated={saveRating}/>}
       <div style={{margin:'0 14px 12px',background:'#0c0c0c',border:'1px solid #181818',borderRadius:14,padding:'13px 14px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',letterSpacing:1.5}}>DAILY MACROS</div>
@@ -283,6 +301,19 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
                 {mFoods.length>0&&<span style={{marginLeft:7,fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333'}}>{mc} kcal · {Math.round(mp)}g pro</span>}
               </div>
               <div style={{display:'flex',gap:5}}>
+                {mFoods.length>0&&(()=>{
+                  const mealRating = mFoods[0]?.rating
+                  const sc = ratingColor(mealRating)
+                  const mc2 = mFoods.reduce((s,f)=>s+f.calories,0)
+                  const mp2 = mFoods.reduce((s,f)=>s+(+f.protein||0),0)
+                  const mcarbs = mFoods.reduce((s,f)=>s+(+f.carbs||0),0)
+                  const mfat = mFoods.reduce((s,f)=>s+(+f.fat||0),0)
+                  return <button onClick={()=>setRatingMeal({name:meal,calories:mc2,protein:mp2,carbs:mcarbs,fat:mfat,rating:mealRating,ai_analysis:mFoods[0]?.ai_analysis,slot:meal})}
+                    style={{background:'#0a1a0a',border:`1px solid ${mealRating?'#1e4a1e':'#1e3a1e'}`,borderRadius:5,color:mealRating?sc:'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
+                    {mealRating&&<span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,lineHeight:1}}>{mealRating}</span>}
+                    {mealRating?'re-rate':'rate'}
+                  </button>
+                })()}
                 <button onClick={()=>setModal(meal)} style={{background:'#141414',border:'1px solid #222',borderRadius:5,color:'#444',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer'}}>+add</button>
               </div>
             </div>
@@ -295,16 +326,9 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
                       <div style={{display:'flex',alignItems:'center',gap:6}}>
                         <div style={{fontSize:12,color:'#aaa',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.name}</div>
                         {f.rating && (
-                          <button onClick={()=>setRatingItem(f)}
-                            style={{background:ratingColor(f.rating)+'22',border:`1px solid ${ratingColor(f.rating)}44`,borderRadius:4,color:ratingColor(f.rating),fontFamily:"'Bebas Neue',sans-serif",fontSize:10,padding:'1px 5px',cursor:'pointer',flexShrink:0,lineHeight:1.4}}>
+                          <span style={{background:ratingColor(f.rating)+'22',border:`1px solid ${ratingColor(f.rating)}44`,borderRadius:4,color:ratingColor(f.rating),fontFamily:"'Bebas Neue',sans-serif",fontSize:10,padding:'1px 5px',flexShrink:0,lineHeight:1.4}}>
                             {f.rating}
-                          </button>
-                        )}
-                        {!f.rating && (
-                          <button onClick={()=>setRatingItem(f)}
-                            style={{background:'#0a1a0a',border:'1px solid #1e3a1e',borderRadius:4,color:'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:8,padding:'1px 5px',cursor:'pointer',flexShrink:0}}>
-                            rate
-                          </button>
+                          </span>
                         )}
                       </div>
                       <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#333',marginTop:2}}>
@@ -363,17 +387,34 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
   const addExercise = async () => {
     let sessionId = session?.id
     if (!sessionId) {
-      const { data } = await supabase.from('workout_sessions').insert({ user_id:userId, logged_date:activeDate, workout_name:workoutName||'Workout', cals_burned:calsBurned||0 }).select().single()
-      sessionId = data?.id
+      const { data, error: sErr } = await supabase
+        .from('workout_sessions')
+        .insert({ user_id:userId, logged_date:activeDate, workout_name:workoutName||'Workout', cals_burned:calsBurned||0 })
+        .select('id')
+      if (sErr || !data || data.length === 0) { console.error('session create failed', sErr); return }
+      sessionId = data[0].id
     }
     if (!sessionId) return
     const aType = getActivityType(newEx.name)
     const isCardio = isCardioType(aType)
-    await supabase.from('exercises').insert({
-      session_id: sessionId, user_id: userId, name: newEx.name, type: isCardio ? aType : 'strength',
-      sets: isCardio ? null : newSets,
-      ...(isCardio ? { duration: +newEx.duration||null, intensity: newEx.intensity||null, calories: +newEx.calories||null, notes: newEx.notes||null, location: null } : {})
-    })
+    const insertData: any = {
+      session_id: sessionId,
+      user_id: userId,
+      name: newEx.name,
+      type: isCardio ? aType : 'strength',
+    }
+    if (isCardio) {
+      insertData.sets = [{
+        duration: newEx.duration||null,
+        intensity: newEx.intensity||null,
+        calories: newEx.calories||null,
+        notes: newEx.notes||null
+      }]
+    } else {
+      insertData.sets = newSets.filter(s => s.weight || s.reps)
+    }
+    const { error: exErr } = await supabase.from('exercises').insert(insertData)
+    if (exErr) { console.error('exercise insert failed', exErr); return }
     setAddingExercise(false)
     setNewEx({ name:'', type:'strength', duration:'', intensity:'', calories:'', notes:'' })
     setNewSets([{weight:'',reps:''}])
