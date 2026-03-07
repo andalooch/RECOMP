@@ -108,14 +108,17 @@ function ManualModal({ meal, onAdd, onClose }: { meal:string; onAdd:(f:any)=>voi
 }
 
 // ── Meal Rating Modal ─────────────────────────────────────────────────────
-function MealRatingModal({ meal, onClose, onRated }: { meal:any; onClose:()=>void; onRated:(r:{score:number;notes:string})=>void }) {
-  const [rating, setRating] = useState<{score:number;notes:string}|null>(meal.rating ? {score:meal.rating, notes:meal.ai_analysis||''} : null)
-  const [loading, setLoading] = useState(!meal.rating)
+function MealRatingModal({ meal, onClose, onRated, forceRefresh }: { meal:any; onClose:()=>void; onRated:(r:{score:number;notes:string})=>void; forceRefresh?:boolean }) {
+  const [rating, setRating] = useState<{score:number;notes:string}|null>(
+    (!forceRefresh && meal.rating) ? {score:meal.rating, notes:meal.ai_analysis||''} : null
+  )
+  const [loading, setLoading] = useState(forceRefresh || !meal.rating)
 
   useEffect(()=>{
-    if (meal.rating) return
+    if (!forceRefresh && meal.rating) return
     const go = async () => {
       setLoading(true)
+      setRating(null)
       try {
         const res = await fetch('/api/rate-meal', {
           method:'POST',
@@ -130,7 +133,7 @@ function MealRatingModal({ meal, onClose, onRated }: { meal:any; onClose:()=>voi
       setLoading(false)
     }
     go()
-  }, [])
+  }, [forceRefresh])
 
   const handleDone = () => {
     if (rating) onRated(rating)
@@ -247,6 +250,12 @@ function ActivityCard({ w, onRemove }: { w:Exercise; onRemove?:()=>void }) {
 function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; activeDate:string; userId:string; onRefresh:()=>void }) {
   const [modal, setModal] = useState<string|null>(null)
   const [ratingMeal, setRatingMeal] = useState<{name:string;calories:number;protein:number;carbs:number;fat:number;rating?:number;ai_analysis?:string;slot:string}|null>(null)
+  const [forceRefresh, setForceRefresh] = useState(false)
+
+  const openRating = (mealData: any, isReRate: boolean) => {
+    setRatingMeal(mealData)
+    setForceRefresh(isReRate)
+  }
 
   const dayFoods = foods.filter(f => f.logged_date === activeDate)
   const meals = MEAL_SLOTS.reduce((a,m) => ({...a,[m]:dayFoods.filter(f=>f.meal===m)}), {} as Record<string,FoodItem[]>)
@@ -274,7 +283,7 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
 
   return (
     <div style={{paddingBottom:40}}>
-      {ratingMeal && <MealRatingModal meal={{name:ratingMeal.name,calories:ratingMeal.calories,protein:ratingMeal.protein,carbs:ratingMeal.carbs,fat:ratingMeal.fat,rating:ratingMeal.rating,ai_analysis:ratingMeal.ai_analysis}} onClose={()=>setRatingMeal(null)} onRated={saveRating}/>}
+      {ratingMeal && <MealRatingModal meal={{name:ratingMeal.name,calories:ratingMeal.calories,protein:ratingMeal.protein,carbs:ratingMeal.carbs,fat:ratingMeal.fat,rating:ratingMeal.rating,ai_analysis:ratingMeal.ai_analysis}} onClose={()=>setRatingMeal(null)} onRated={saveRating} forceRefresh={forceRefresh}/>}
       <div style={{margin:'0 14px 12px',background:'#0c0c0c',border:'1px solid #181818',borderRadius:14,padding:'13px 14px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
           <div style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:'#3a3a3a',letterSpacing:1.5}}>DAILY MACROS</div>
@@ -308,7 +317,7 @@ function FoodTab({ foods, activeDate, userId, onRefresh }: { foods:FoodItem[]; a
                   const mp2 = mFoods.reduce((s,f)=>s+(+f.protein||0),0)
                   const mcarbs = mFoods.reduce((s,f)=>s+(+f.carbs||0),0)
                   const mfat = mFoods.reduce((s,f)=>s+(+f.fat||0),0)
-                  return <button onClick={()=>setRatingMeal({name:meal,calories:mc2,protein:mp2,carbs:mcarbs,fat:mfat,rating:mealRating,ai_analysis:mFoods[0]?.ai_analysis,slot:meal})}
+                  return <button onClick={()=>openRating({name:meal,calories:mc2,protein:mp2,carbs:mcarbs,fat:mfat,rating:mealRating,ai_analysis:mFoods[0]?.ai_analysis,slot:meal}, !!mealRating)}
                     style={{background:'#0a1a0a',border:`1px solid ${mealRating?'#1e4a1e':'#1e3a1e'}`,borderRadius:5,color:mealRating?sc:'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:9,padding:'3px 8px',cursor:'pointer',display:'flex',alignItems:'center',gap:4}}>
                     {mealRating&&<span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:11,lineHeight:1}}>{mealRating}</span>}
                     {mealRating?'re-rate':'rate'}
@@ -378,7 +387,12 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
         body: JSON.stringify({ exercises: session.exercises, workoutName: session.workout_name, calsBurned: session.cals_burned })
       })
       const data = await res.json()
-      await supabase.from('workout_sessions').update({ rating: data.rating, analysis: data.analysis }).eq('id', session.id)
+      const updates: any = { rating: data.rating, analysis: data.analysis }
+      if (data.workoutName) {
+        updates.workout_name = data.workoutName
+        setWorkoutName(data.workoutName)
+      }
+      await supabase.from('workout_sessions').update(updates).eq('id', session.id)
       onRefresh()
     } catch {}
     setAnalyzing(false)
@@ -495,7 +509,7 @@ function WorkoutTab({ session, activeDate, userId, onRefresh }: { session:Workou
         <button onClick={()=>setAddingExercise(true)} style={{flex:2,padding:10,background:'#0c0c0c',border:'1px solid #1e1e1e',borderRadius:9,color:'#444',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:'pointer'}}>+ ADD EXERCISE</button>
         {session && session.exercises.length > 0 && (
           <button onClick={runAnalysis} disabled={analyzing} style={{flex:1,padding:10,background:analyzing?'#0c0c0c':'#0a1a0a',border:`1px solid ${analyzing?'#1e1e1e':'#1a3a1a'}`,borderRadius:9,color:analyzing?'#333':'#4aff7a',fontFamily:"'DM Mono',monospace",fontSize:10,cursor:analyzing?'default':'pointer'}}>
-            {analyzing?'ANALYZING...':'GRADE'}
+            {analyzing?'ANALYZING...':session?.analysis?'RE-GRADE':'GRADE'}
           </button>
         )}
       </div>
