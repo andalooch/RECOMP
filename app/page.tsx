@@ -1473,6 +1473,84 @@ function OnboardingWizard({ userId, onComplete }: { userId: string; onComplete: 
 }
 
 // ── Main App ──────────────────────────────────────────────────────────────
+function LandingPage() {
+  const [scrolled, setScrolled] = React.useState(false)
+  React.useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 40)
+    window.addEventListener('scroll', fn)
+    return () => window.removeEventListener('scroll', fn)
+  }, [])
+  const features = [
+    { icon: '⚡', title: 'AI FOOD LOGGING', body: 'Dictate your meals. Claude parses macros instantly — no barcode scanning, no databases.' },
+    { icon: '🏋️', title: 'WORKOUT GRADING', body: 'Log your session and get an AI-powered grade with per-exercise coaching notes.' },
+    { icon: '📉', title: 'WEIGHT TRACKING', body: 'Running log with change deltas, progress bar, and goal achievement badges.' },
+    { icon: '🎯', title: 'SMART MACROS', body: 'Targets calculated from your stats, goal type, and pace. Recomp, cut, or build.' },
+  ]
+  return (
+    <div style={{ background: '#080808', minHeight: '100vh', color: '#ccc', overflowX: 'hidden' as const }}>
+      <style>{`
+        @keyframes fadeUp { from { opacity:0; transform:translateY(20px) } to { opacity:1; transform:translateY(0) } }
+        .fu1{animation:fadeUp 0.6s 0.1s both} .fu2{animation:fadeUp 0.6s 0.25s both} .fu3{animation:fadeUp 0.6s 0.4s both} .fu4{animation:fadeUp 0.6s 0.55s both}
+        .lp-cta:hover{background:#f5ff70!important;transform:translateY(-1px)}
+        .lp-cta{transition:all 0.15s}
+        .lp-sec:hover{border-color:#e8ff4733!important;background:#0e0e0e!important}
+        .lp-sec{transition:all 0.2s}
+        .lp-out:hover{border-color:#333!important;color:#666!important}
+        .lp-out{transition:all 0.15s}
+      `}</style>
+      {/* Nav */}
+      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: scrolled ? '#080808ee' : 'transparent', backdropFilter: scrolled ? 'blur(12px)' : 'none', borderBottom: `1px solid ${scrolled ? '#111' : 'transparent'}`, transition: 'all 0.3s' }}>
+        <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 22, letterSpacing: 4, background: 'linear-gradient(90deg,#e8ff47,#47c8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>RECOMP</div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 8, color: '#444', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer' }}>LOG IN</button>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '8px 18px', background: '#e8ff47', border: 'none', borderRadius: 8, color: '#080808', fontFamily: "'DM Mono',monospace", fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>START FREE</button>
+        </div>
+      </nav>
+      {/* Hero */}
+      <section style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '120px 24px 80px', textAlign: 'center' as const, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%,-50%)', width: 500, height: 500, background: 'radial-gradient(circle, #e8ff4708 0%, transparent 70%)', pointerEvents: 'none' }}/>
+        <div className="fu1" style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: '#e8ff47', letterSpacing: 3, marginBottom: 20 }}>AI-POWERED BODY RECOMPOSITION</div>
+        <h1 className="fu2" style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 'clamp(52px,12vw,90px)', letterSpacing: 5, lineHeight: 0.95, marginBottom: 24, background: 'linear-gradient(180deg,#fff 0%,#555 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          TRACK.<br/>TRAIN.<br/>TRANSFORM.
+        </h1>
+        <p className="fu3" style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 15, color: '#3a3a3a', maxWidth: 400, lineHeight: 1.7, marginBottom: 36 }}>
+          Log food by talking. Grade your workouts with AI. Watch your body change one check-in at a time.
+        </p>
+        <div className="fu4" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, justifyContent: 'center', marginBottom: 60 }}>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>GET STARTED FREE</button>
+          <button className="lp-out" onClick={() => window.location.href='/auth'} style={{ padding: '15px 36px', background: 'transparent', border: '1px solid #1e1e1e', borderRadius: 10, color: '#2a2a2a', fontFamily: "'Bebas Neue',sans-serif", fontSize: 18, letterSpacing: 3, cursor: 'pointer' }}>LOG IN</button>
+        </div>
+        <div className="fu4" style={{ display: 'flex', gap: 48, flexWrap: 'wrap' as const, justifyContent: 'center' }}>
+          {[['AI-PARSED','Meals'],['INSTANT','Workout grades'],['ZERO','Manual entry']].map(([n,l]) => (
+            <div key={n} style={{ textAlign: 'center' as const }}>
+              <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 24, color: '#e8ff47', letterSpacing: 2 }}>{n}</div>
+              <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#222', letterSpacing: 1, marginTop: 3 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+      {/* Features */}
+      <section style={{ padding: '60px 24px 100px', maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 8, color: '#222', letterSpacing: 2, textAlign: 'center' as const, marginBottom: 40 }}>EVERYTHING YOU NEED</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 10 }}>
+          {features.map(f => (
+            <div key={f.title} className="lp-sec" style={{ background: '#0a0a0a', border: '1px solid #111', borderRadius: 14, padding: '22px' }}>
+              <div style={{ fontSize: 22, marginBottom: 10 }}>{f.icon}</div>
+              <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 16, color: '#666', letterSpacing: 2, marginBottom: 8 }}>{f.title}</div>
+              <div style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, color: '#2a2a2a', lineHeight: 1.7 }}>{f.body}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign: 'center' as const, marginTop: 60 }}>
+          <button className="lp-cta" onClick={() => window.location.href='/auth'} style={{ padding: '15px 44px', background: '#e8ff47', border: 'none', borderRadius: 10, color: '#080808', fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, letterSpacing: 3, cursor: 'pointer' }}>START FOR FREE</button>
+          <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 7, color: '#1a1a1a', marginTop: 14, letterSpacing: 1 }}>NO CREDIT CARD · NO ADS · YOUR DATA IS YOURS</div>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+
 export default function HomePage() {
   const [tab, setTab] = useState('food')
   const [activeDate, setActiveDate] = useState(todayKey())
@@ -1486,12 +1564,9 @@ export default function HomePage() {
   useEffect(() => {
     const loadProfile = async (uid: string) => {
       const { data: profile, error } = await supabase.from('profiles').select('id,macro_calories,macro_protein,macro_carbs,macro_fat').eq('id', uid).maybeSingle()
-      if (error && error.code !== 'PGRST116') {
-        console.error('profile error:', error)
-        setLoading(false)
-        return
-      }
-      if (!profile) {
+      console.log('loadProfile:', { uid, profile, error })
+      // Any error (including RLS/schema) → treat as no profile → show onboarding
+      if (error || !profile) {
         setNeedsOnboarding(true)
       } else if (profile.macro_calories) {
         setMacroGoal({ calories: profile.macro_calories, protein: profile.macro_protein, carbs: profile.macro_carbs, fat: profile.macro_fat })
@@ -1502,9 +1577,8 @@ export default function HomePage() {
     // getUser() validates token server-side — source of truth
     supabase.auth.getUser().then(async ({ data, error }) => {
       if (error || !data.user) {
-        // Clear any stale local session then redirect
         await supabase.auth.signOut()
-        window.location.href = '/auth'
+        setLoading(false)
         return
       }
       setUserId(data.user.id)
@@ -1537,6 +1611,8 @@ export default function HomePage() {
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
+
+  if (!userId) return <LandingPage />
 
   if (needsOnboarding && userId) return <OnboardingWizard userId={userId} onComplete={handleOnboardingComplete}/>
 
